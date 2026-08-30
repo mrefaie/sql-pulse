@@ -8,6 +8,18 @@ desktop, or the web.
 > Features may change or break between commits. Pending work (known gaps,
 > limitations, cleanups) is tracked in [Issues](https://github.com/mrefaie/sql-pulse/issues).
 
+## Vision
+
+SQL Pulse's goal is a database workbench that is **private, portable, and
+offline-first**: your credentials, your schema, and your queries stay on your
+device, with no cloud dependency.
+
+The long-term vision is a **copilot that runs where the data is** — an
+on-device text-to-SQL model trained for SQL Pulse's workflows: type a question
+in plain language, get dialect-aware SQL against your live schema, entirely
+offline. The model is intentionally tiny and quantized to fit consumer-budget
+mobile hardware — no GPU, no API calls, no server.
+
 ## Screenshots
 
 | | | |
@@ -42,6 +54,31 @@ database seeded with the demo catalog (`sqlpulse_demo`).
   enforced before every statement with a live audit log; prod-connection
   ribbon; app lock (device biometrics or PIN); everything stays
   on-device — no cloud sync.
+
+## Roadmap
+
+**Now — hardening the foundation (v0.x).** Close the known gaps tracked in
+Issues: remove dead code (#1), honor the per-engine connection options
+(#2, #3), broaden SQL Server support (#4), secure credential storage (#5),
+make the connection diff actionable (#6), fail-closed app lock (#7), ship the
+Docker infra for MySQL/MariaDB/SQL Server demo profiles (#8), and clean up
+scaffold leftovers (#9).
+
+**Phase 1 — on-device text-to-SQL model (in training).** A tiny
+natural-language-to-SQL model, trained for SQL Pulse: schema-aware +
+dialect-aware SQL generation (PostgreSQL, MySQL/MariaDB, SQLite, SQL Server)
+that runs fully offline on consumer-budget phones. What lands in the app:
+
+- **NL → SQL** in the query console: describe what you need, get a suggested
+  query with the live schema in context (tables, columns, PK/FK).
+- **Dialect-aware output** with safe defaults (LIMIT, read-only-first
+  suggestions) that honors the active RBAC role — e.g. no write suggestions
+  under ReadOnly.
+- **On-device inference** only: quantized to run without a GPU or server; no
+  data leaves the device.
+
+**Phase 2 — polish & release.** App-store readiness, onboarding, docs, web
+parity polish, and a first semver release.
 
 ## Running
 
@@ -84,7 +121,7 @@ bin/server.dart shelf backend (web proxy + static host)
 tool/          seed_pg.dart, ops_probe.dart, feature_probe.dart
 ```
 
-## Known gaps & roadmap
+## Known gaps
 
 Tracked in the issue tracker; the notable ones:
 
@@ -104,3 +141,14 @@ Tracked in the issue tracker; the notable ones:
 The integration tests and `tool/ops_probe.dart` / `tool/feature_probe.dart`
 exercise real operations against live databases (`sqlpulse_demo` on
 PostgreSQL/MySQL/MariaDB/SQL Server).
+
+## Support
+
+SQL Pulse is built and maintained in my spare time, and the on-device
+text-to-SQL model takes training cycles (and electricity). If it's useful to
+you, consider a Ko-fi donation — it directly funds finishing this project and
+releasing more open-source work.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/morefaie92)
+
+→ <https://ko-fi.com/morefaie92>
