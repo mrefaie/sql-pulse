@@ -23,7 +23,13 @@ class PostgresDriver extends DbDriver {
     final ssl = (o['pgSslMode'] ?? 'disable');
     final secure = ssl != 'disable' && _profile.ssl;
     final conn = await pg.Connection.open(
-      pg.Endpoint(host: _profile.host, port: _profile.port, database: db, username: _profile.user, password: '${o['password'] ?? ''}'),
+      pg.Endpoint(
+        host: _profile.host,
+        port: _profile.port,
+        database: db,
+        username: _profile.user,
+        password: '${o['password'] ?? ''}',
+      ),
       settings: pg.ConnectionSettings(
         sslMode: secure ? pg.SslMode.require : pg.SslMode.disable,
         connectTimeout: const Duration(seconds: 12),
@@ -63,7 +69,9 @@ class PostgresDriver extends DbDriver {
 
   @override
   Future<List<String>> listCatalogs() async {
-    final r = await _conn!.execute("SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn ORDER BY datname");
+    final r = await _conn!.execute(
+      "SELECT datname FROM pg_database WHERE datistemplate = false AND datallowconn ORDER BY datname",
+    );
     return r.map((row) => '${row.first}').toList();
   }
 
@@ -88,30 +96,53 @@ class PostgresDriver extends DbDriver {
       final nullable = '${row[6]}' == 'YES';
       final def = row[7]?.toString() ?? '';
       var type = dataType;
-      if (charLen != null) type = '$dataType($charLen)';
-      else if (numP != null && (dataType.contains('numeric') || dataType.contains('decimal'))) type = 'numeric($numP,${numS ?? 0})';
+      if (charLen != null)
+        type = '$dataType($charLen)';
+      else if (numP != null &&
+          (dataType.contains('numeric') || dataType.contains('decimal')))
+        type = 'numeric($numP,${numS ?? 0})';
       final ai = def.contains('nextval');
-      tables.putIfAbsent(tn, () => TableDef(name: tn, columns: [], rows: []))
-          .columns.add(ColumnDef(name: name, type: type, nullable: nullable, ai: ai, def: ai ? '' : def));
+      tables
+          .putIfAbsent(tn, () => TableDef(name: tn, columns: [], rows: []))
+          .columns
+          .add(
+            ColumnDef(
+              name: name,
+              type: type,
+              nullable: nullable,
+              ai: ai,
+              def: ai ? '' : def,
+            ),
+          );
     }
 
     // primary keys
-    final pks = await _conn!.execute('''
+    final pks = await _conn!.execute(
+      '''
       SELECT kcu.table_name, kcu.column_name FROM information_schema.table_constraints tc
       JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-      WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public' ''');
+      WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public' ''',
+    );
     for (final row in pks) {
       final t = tables['${row[0]}'];
-      t?.columns.firstWhere((c) => c.name == '${row[1]}', orElse: () => ColumnDef(name: '', type: '')).pk = true;
+      t?.columns
+              .firstWhere(
+                (c) => c.name == '${row[1]}',
+                orElse: () => ColumnDef(name: '', type: ''),
+              )
+              .pk =
+          true;
     }
 
     // foreign keys
-    final fks = await _conn!.execute('''
+    final fks = await _conn!.execute(
+      '''
       SELECT kcu.table_name, kcu.column_name, ccu.table_name AS ref_table, ccu.column_name AS ref_col
       FROM information_schema.table_constraints tc
       JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
       JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
-      WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public' ''');
+      WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public' ''',
+    );
     for (final row in fks) {
       final t = tables['${row[0]}'];
       final c = t?.columns.where((c) => c.name == '${row[1]}').toList();
@@ -122,23 +153,66 @@ class PostgresDriver extends DbDriver {
     }
 
     // row estimates (fast, from stats)
-    final counts = await _conn!.execute("SELECT relname, n_live_tup FROM pg_stat_user_tables");
+    final counts = await _conn!.execute(
+      "SELECT relname, n_live_tup FROM pg_stat_user_tables",
+    );
     final countMap = {for (final r in counts) '${r[0]}': (r[1] as int?) ?? 0};
     for (final e in tables.entries) {
       e.value.rowEstimate = countMap[e.key] ?? 0;
     }
 
-    final views = await _conn!.execute("SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = 'public'");
-    final routines = await _conn!.execute("SELECT routine_name, routine_type, data_type, routine_definition FROM information_schema.routines WHERE specific_schema = 'public'");
-    final trigs = await _conn!.execute("SELECT trigger_name, event_manipulation, event_object_table, action_statement FROM information_schema.triggers WHERE trigger_schema = 'public'");
+    final views = await _conn!.execute(
+      "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = 'public'",
+    );
+    final routines = await _conn!.execute(
+      "SELECT routine_name, routine_type, data_type, routine_definition FROM information_schema.routines WHERE specific_schema = 'public'",
+    );
+    final trigs = await _conn!.execute(
+      "SELECT trigger_name, event_manipulation, event_object_table, action_statement FROM information_schema.triggers WHERE trigger_schema = 'public'",
+    );
 
     final cat = Catalog(
       label: catalog,
       tables: tables,
-      views: views.map((r) => {'name': '${r[0]}', 'definition': 'CREATE VIEW ${r[0]} AS\n${r[1]}'}).toList(),
-      procedures: routines.where((r) => '${r[1]}' == 'PROCEDURE').map((r) => {'name': '${r[0]}', 'params': '', 'definition': '${r[3] ?? '-- ${r[0]}'}'}).toList(),
-      functions: routines.where((r) => '${r[1]}' == 'FUNCTION').map((r) => {'name': '${r[0]}', 'params': '', 'returns': '${r[2]}', 'definition': '${r[3] ?? '-- ${r[0]}'}'}).toList(),
-      triggers: trigs.map((r) => {'name': '${r[0]}', 'event': '${r[1]}', 'target': '${r[2]}', 'definition': '${r[3]}'}).toList(),
+      views: views
+          .map(
+            (r) => {
+              'name': '${r[0]}',
+              'definition': 'CREATE VIEW ${r[0]} AS\n${r[1]}',
+            },
+          )
+          .toList(),
+      procedures: routines
+          .where((r) => '${r[1]}' == 'PROCEDURE')
+          .map(
+            (r) => {
+              'name': '${r[0]}',
+              'params': '',
+              'definition': '${r[3] ?? '-- ${r[0]}'}',
+            },
+          )
+          .toList(),
+      functions: routines
+          .where((r) => '${r[1]}' == 'FUNCTION')
+          .map(
+            (r) => {
+              'name': '${r[0]}',
+              'params': '',
+              'returns': '${r[2]}',
+              'definition': '${r[3] ?? '-- ${r[0]}'}',
+            },
+          )
+          .toList(),
+      triggers: trigs
+          .map(
+            (r) => {
+              'name': '${r[0]}',
+              'event': '${r[1]}',
+              'target': '${r[2]}',
+              'definition': '${r[3]}',
+            },
+          )
+          .toList(),
     );
     cat.relations = buildRelations(tables);
     cat.er = autoErLayout(tables.keys);
@@ -153,21 +227,45 @@ class PostgresDriver extends DbDriver {
       final r = await _conn!.execute(sql, ignoreRows: false);
       final ms = (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999);
       if (r.schema.columns.isNotEmpty && returnsRows(sql)) {
-        final headers = r.schema.columns.map((c) => c.columnName ?? '?').toList();
+        final headers = r.schema.columns
+            .map((c) => c.columnName ?? '?')
+            .toList();
         final rows = r.map((row) => row.map(_coerce).toList()).toList();
-        return QueryResult(ms: ms, headers: headers, rows: rows, comment: '${rows.length} row${rows.length == 1 ? '' : 's'} in set.');
+        return QueryResult(
+          ms: ms,
+          headers: headers,
+          rows: rows,
+          comment: '${rows.length} row${rows.length == 1 ? '' : 's'} in set.',
+        );
       }
       final verb = sql.trimLeft().split(RegExp(r'\s')).first.toUpperCase();
-      return QueryResult(ms: ms, status: true, statementType: verb, comment: 'Query OK · ${r.affectedRows} row(s) affected.');
+      return QueryResult(
+        ms: ms,
+        status: true,
+        statementType: verb,
+        comment: 'Query OK · ${r.affectedRows} row(s) affected.',
+      );
     } catch (e) {
-      return QueryResult(ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999), error: true, message: _clean(e));
+      return QueryResult(
+        ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999),
+        error: true,
+        message: _clean(e),
+      );
     }
   }
 
   @override
-  Future<List<RowMap>> preview(String catalog, String table, int limit) async {
+  Future<List<RowMap>> preview(
+    String catalog,
+    String table,
+    int limit, {
+    List<String>? orderBy,
+  }) async {
     await _ensure(catalog);
-    final r = await _conn!.execute('SELECT * FROM "$table" LIMIT $limit');
+    final ord = orderBy == null || orderBy.isEmpty
+        ? ''
+        : ' ORDER BY ${orderBy.map((c) => '"$c"').join(', ')}';
+    final r = await _conn!.execute('SELECT * FROM "$table"$ord LIMIT $limit');
     final headers = r.schema.columns.map((c) => c.columnName ?? '?').toList();
     return r.map((row) {
       final m = <String, Object?>{};

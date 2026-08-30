@@ -15,9 +15,18 @@ class HttpDriver extends DbDriver {
 
   Uri _u(String path) => Uri.base.resolve(path);
 
-  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
-    final r = await http.post(_u(path), headers: {'content-type': 'application/json'}, body: jsonEncode(body));
-    final j = r.body.isNotEmpty ? jsonDecode(r.body) as Map<String, dynamic> : <String, dynamic>{};
+  Future<Map<String, dynamic>> _post(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final r = await http.post(
+      _u(path),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    final j = r.body.isNotEmpty
+        ? jsonDecode(r.body) as Map<String, dynamic>
+        : <String, dynamic>{};
     if (r.statusCode >= 400 || j['ok'] == false) {
       throw DbException(j['error'] as String? ?? 'HTTP ${r.statusCode}');
     }
@@ -48,33 +57,62 @@ class HttpDriver extends DbDriver {
 
   @override
   Future<Catalog> introspect(String catalog) async {
-    final j = await _post('api/introspect', {'session': _session, 'catalog': catalog});
+    final j = await _post('api/introspect', {
+      'session': _session,
+      'catalog': catalog,
+    });
     return catalogFromJson(j['catalog'] as Map);
   }
 
   @override
   Future<QueryResult> execute(String sql, {String? catalog}) async {
-    final j = await _post('api/execute', {'session': _session, 'sql': sql, 'catalog': catalog});
+    final j = await _post('api/execute', {
+      'session': _session,
+      'sql': sql,
+      'catalog': catalog,
+    });
     return resultFromJson(j['result'] as Map);
   }
 
   @override
   Future<QueryResult> explain(String sql, {String? catalog}) async {
-    final j = await _post('api/explain', {'session': _session, 'sql': sql, 'catalog': catalog});
+    final j = await _post('api/explain', {
+      'session': _session,
+      'sql': sql,
+      'catalog': catalog,
+    });
     return resultFromJson(j['result'] as Map);
   }
 
   @override
-  Future<QueryResult?> runTransaction(List<String> stmts, {String? catalog}) async {
+  Future<QueryResult?> runTransaction(
+    List<String> stmts, {
+    String? catalog,
+  }) async {
     if (stmts.isEmpty) return null;
-    final j = await _post('api/txbatch', {'session': _session, 'stmts': stmts, 'catalog': catalog});
+    final j = await _post('api/txbatch', {
+      'session': _session,
+      'stmts': stmts,
+      'catalog': catalog,
+    });
     final res = j['result'];
     return res == null ? null : resultFromJson(res as Map);
   }
 
   @override
-  Future<List<RowMap>> preview(String catalog, String table, int limit) async {
-    final j = await _post('api/preview', {'session': _session, 'catalog': catalog, 'table': table, 'limit': limit});
+  Future<List<RowMap>> preview(
+    String catalog,
+    String table,
+    int limit, {
+    List<String>? orderBy,
+  }) async {
+    final j = await _post('api/preview', {
+      'session': _session,
+      'catalog': catalog,
+      'table': table,
+      'limit': limit,
+      'orderBy': orderBy ?? const [],
+    });
     return rowsFromJson(j['rows'] as List);
   }
 }

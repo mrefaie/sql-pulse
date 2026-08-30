@@ -31,7 +31,9 @@ class SqliteDriver extends DbDriver {
   }
 
   void _seedIfEmpty() {
-    final has = _db!.select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1");
+    final has = _db!.select(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1",
+    );
     if (has.isNotEmpty) return;
     final cat = buildCatalogs()['e_commerce']!;
     for (final t in cat.tables.values) {
@@ -43,7 +45,9 @@ class SqliteDriver extends DbDriver {
       }).toList();
       // foreign keys → so relations + ER diagram populate
       for (final c in t.columns.where((c) => c.fkTable != null)) {
-        parts.add('FOREIGN KEY ("${c.name}") REFERENCES "${c.fkTable}"("${c.fkCol ?? 'id'}")');
+        parts.add(
+          'FOREIGN KEY ("${c.name}") REFERENCES "${c.fkTable}"("${c.fkCol ?? 'id'}")',
+        );
       }
       _db!.execute('CREATE TABLE "${t.name}" (${parts.join(', ')})');
       for (final r in t.rows) {
@@ -78,12 +82,19 @@ class SqliteDriver extends DbDriver {
 
   @override
   Future<Catalog> introspect(String catalog) async {
-    final tableNames = _db!.select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => '${r['name']}').toList();
+    final tableNames = _db!
+        .select(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+        )
+        .map((r) => '${r['name']}')
+        .toList();
     final tables = <String, TableDef>{};
     for (final tn in tableNames) {
       final info = _db!.select('PRAGMA table_info("$tn")');
       final fks = _db!.select('PRAGMA foreign_key_list("$tn")');
-      final fkMap = {for (final f in fks) '${f['from']}': ('${f['table']}', '${f['to']}')};
+      final fkMap = {
+        for (final f in fks) '${f['from']}': ('${f['table']}', '${f['to']}'),
+      };
       final cols = info.map((r) {
         final name = '${r['name']}';
         final type = '${r['type']}';
@@ -99,18 +110,40 @@ class SqliteDriver extends DbDriver {
           fkCol: fk?.$2,
         );
       }).toList();
-      final count = _db!.select('SELECT COUNT(*) AS n FROM "$tn"').first['n'] as int? ?? 0;
-      tables[tn] = TableDef(name: tn, columns: cols, rows: [], rowEstimate: count);
+      final count =
+          _db!.select('SELECT COUNT(*) AS n FROM "$tn"').first['n'] as int? ??
+          0;
+      tables[tn] = TableDef(
+        name: tn,
+        columns: cols,
+        rows: [],
+        rowEstimate: count,
+      );
     }
-    final views = _db!.select("SELECT name, sql FROM sqlite_master WHERE type='view'");
-    final trigs = _db!.select("SELECT name, sql, tbl_name FROM sqlite_master WHERE type='trigger'");
+    final views = _db!.select(
+      "SELECT name, sql FROM sqlite_master WHERE type='view'",
+    );
+    final trigs = _db!.select(
+      "SELECT name, sql, tbl_name FROM sqlite_master WHERE type='trigger'",
+    );
     final cat = Catalog(
       label: catalog,
       tables: tables,
-      views: views.map((r) => {'name': '${r['name']}', 'definition': '${r['sql']}'}).toList(),
+      views: views
+          .map((r) => {'name': '${r['name']}', 'definition': '${r['sql']}'})
+          .toList(),
       procedures: const [],
       functions: const [],
-      triggers: trigs.map((r) => {'name': '${r['name']}', 'event': 'TRIGGER', 'target': '${r['tbl_name']}', 'definition': '${r['sql']}'}).toList(),
+      triggers: trigs
+          .map(
+            (r) => {
+              'name': '${r['name']}',
+              'event': 'TRIGGER',
+              'target': '${r['tbl_name']}',
+              'definition': '${r['sql']}',
+            },
+          )
+          .toList(),
     );
     cat.relations = buildRelations(tables);
     cat.er = autoErLayout(tables.keys);
@@ -126,26 +159,56 @@ class SqliteDriver extends DbDriver {
         final ms = (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999);
         final headers = rs.columnNames;
         final rows = rs.rows.map((row) => row.map(_coerce).toList()).toList();
-        return QueryResult(ms: ms, headers: headers, rows: rows, comment: '${rows.length} row${rows.length == 1 ? '' : 's'} in set.');
+        return QueryResult(
+          ms: ms,
+          headers: headers,
+          rows: rows,
+          comment: '${rows.length} row${rows.length == 1 ? '' : 's'} in set.',
+        );
       }
       _db!.execute(sql);
       final ms = (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999);
       final verb = sql.trimLeft().split(RegExp(r'\s')).first.toUpperCase();
-      return QueryResult(ms: ms, status: true, statementType: verb, comment: 'Query OK · ${_db!.updatedRows} row(s) affected.');
+      return QueryResult(
+        ms: ms,
+        status: true,
+        statementType: verb,
+        comment: 'Query OK · ${_db!.updatedRows} row(s) affected.',
+      );
     } catch (e) {
-      return QueryResult(ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999), error: true, message: e.toString().replaceFirst('SqliteException(', '').replaceFirst(RegExp(r'\)$'), ''));
+      return QueryResult(
+        ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999),
+        error: true,
+        message: e
+            .toString()
+            .replaceFirst('SqliteException(', '')
+            .replaceFirst(RegExp(r'\)$'), ''),
+      );
     }
   }
 
   @override
   Future<QueryResult> explain(String sql, {String? catalog}) {
-    final body = sql.replaceFirst(RegExp(r'^\s*explain(\s+query\s+plan)?\s+', caseSensitive: false), '').trim();
+    final body = sql
+        .replaceFirst(
+          RegExp(r'^\s*explain(\s+query\s+plan)?\s+', caseSensitive: false),
+          '',
+        )
+        .trim();
     return execute('EXPLAIN QUERY PLAN $body');
   }
 
   @override
-  Future<List<RowMap>> preview(String catalog, String table, int limit) async {
-    final rs = _db!.select('SELECT * FROM "$table" LIMIT $limit');
+  Future<List<RowMap>> preview(
+    String catalog,
+    String table,
+    int limit, {
+    List<String>? orderBy,
+  }) async {
+    final ord = orderBy == null || orderBy.isEmpty
+        ? ''
+        : ' ORDER BY ${orderBy.map((c) => '"$c"').join(', ')}';
+    final rs = _db!.select('SELECT * FROM "$table"$ord LIMIT $limit');
     return rs.rows.map((row) {
       final m = <String, Object?>{};
       for (var i = 0; i < rs.columnNames.length; i++) {

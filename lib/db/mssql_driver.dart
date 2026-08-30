@@ -13,7 +13,8 @@ class _Writer {
   final BytesBuilder _b = BytesBuilder();
   void u8(int v) => _b.addByte(v & 0xff);
   void u16le(int v) => _b.add([v & 0xff, (v >> 8) & 0xff]);
-  void u32le(int v) => _b.add([v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >> 24) & 0xff]);
+  void u32le(int v) =>
+      _b.add([v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >> 24) & 0xff]);
   void bytes(List<int> v) => _b.add(v);
   void ucs2(String s) {
     for (final u in s.codeUnits) {
@@ -73,7 +74,8 @@ class _PacketStream {
 
   Future<Uint8List> _need(int n) async {
     while (_buf.length < n) {
-      if (!await _it.moveNext()) throw DbException('SQL Server connection closed');
+      if (!await _it.moveNext())
+        throw DbException('SQL Server connection closed');
       _buf.addAll(_it.current);
     }
     final out = Uint8List.fromList(_buf.sublist(0, n));
@@ -117,11 +119,22 @@ class MssqlDriver extends DbDriver {
     const maxData = 4096 - 8;
     var off = 0;
     while (true) {
-      final end = (off + maxData < payload.length) ? off + maxData : payload.length;
+      final end = (off + maxData < payload.length)
+          ? off + maxData
+          : payload.length;
       final chunk = payload.sublist(off, end);
       final eom = end >= payload.length;
       final len = 8 + chunk.length;
-      final header = [type, eom ? 0x01 : 0x00, (len >> 8) & 0xff, len & 0xff, 0, 0, 1, 0];
+      final header = [
+        type,
+        eom ? 0x01 : 0x00,
+        (len >> 8) & 0xff,
+        len & 0xff,
+        0,
+        0,
+        1,
+        0,
+      ];
       _sock!.add(header);
       _sock!.add(chunk);
       off = end;
@@ -133,7 +146,11 @@ class MssqlDriver extends DbDriver {
   @override
   Future<void> connect(Profile p) async {
     _currentDb = p.catalog;
-    _sock = await Socket.connect(p.host, p.port, timeout: const Duration(seconds: 12));
+    _sock = await Socket.connect(
+      p.host,
+      p.port,
+      timeout: const Duration(seconds: 12),
+    );
     _sock!.setOption(SocketOption.tcpNoDelay, true);
     _stream = _PacketStream(_sock!.cast<Uint8List>());
 
@@ -141,7 +158,9 @@ class MssqlDriver extends DbDriver {
     final pre = await _stream!.readMessage();
     final enc = _preloginEncryption(pre);
     if (enc == 1 || enc == 3) {
-      throw DbException('This SQL Server requires TLS encryption, which this lightweight driver does not support. Set the server to allow unencrypted connections, or use it on a platform with a native driver.');
+      throw DbException(
+        'This SQL Server requires TLS encryption, which this lightweight driver does not support. Set the server to allow unencrypted connections, or use it on a platform with a native driver.',
+      );
     }
 
     await _send(0x10, _login7(p));
@@ -341,18 +360,38 @@ class MssqlDriver extends DbDriver {
       final parsed = _parseResult(resp);
       final ms = (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999);
       if (parsed.headers != null) {
-        return QueryResult(ms: ms, headers: parsed.headers, rows: parsed.rows, comment: '${parsed.rows!.length} row${parsed.rows!.length == 1 ? '' : 's'} in set.');
+        return QueryResult(
+          ms: ms,
+          headers: parsed.headers,
+          rows: parsed.rows,
+          comment:
+              '${parsed.rows!.length} row${parsed.rows!.length == 1 ? '' : 's'} in set.',
+        );
       }
       final verb = sql.trimLeft().split(RegExp(r'\s')).first.toUpperCase();
-      return QueryResult(ms: ms, status: true, statementType: verb, comment: 'Query OK · ${parsed.affected} row(s) affected.');
+      return QueryResult(
+        ms: ms,
+        status: true,
+        statementType: verb,
+        comment: 'Query OK · ${parsed.affected} row(s) affected.',
+      );
     } on DbException catch (e) {
-      return QueryResult(ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999), error: true, message: e.message);
+      return QueryResult(
+        ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999),
+        error: true,
+        message: e.message,
+      );
     } catch (e) {
-      return QueryResult(ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999), error: true, message: e.toString());
+      return QueryResult(
+        ms: (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999),
+        error: true,
+        message: e.toString(),
+      );
     }
   }
 
-  ({List<String>? headers, List<List<Object?>>? rows, int affected}) _parseResult(Uint8List msg) {
+  ({List<String>? headers, List<List<Object?>>? rows, int affected})
+  _parseResult(Uint8List msg) {
     final r = _Reader(msg);
     List<_Col>? cols;
     List<String>? headers;
@@ -410,7 +449,11 @@ class MssqlDriver extends DbDriver {
       }
     }
     if (error != null && headers == null) throw DbException(error);
-    return (headers: headers, rows: headers != null ? rows : null, affected: affected);
+    return (
+      headers: headers,
+      rows: headers != null ? rows : null,
+      affected: affected,
+    );
   }
 
   List<_Col> _readColMeta(_Reader r) {
@@ -432,33 +475,74 @@ class MssqlDriver extends DbDriver {
     final c = _Col()..type = type;
     switch (type) {
       // fixed-length
-      case 0x1F: case 0x30: c.len = 1; break; // NULL/INT1
-      case 0x32: c.len = 1; break; // BIT
-      case 0x34: c.len = 2; break; // INT2
-      case 0x38: c.len = 4; break; // INT4
-      case 0x3A: c.len = 4; break; // MONEY4? (SMALLMONEY)
-      case 0x3B: c.len = 4; break; // FLT4
-      case 0x3C: c.len = 8; break; // MONEY
-      case 0x3D: c.len = 8; break; // DATETIME
-      case 0x3E: c.len = 8; break; // FLT8
-      case 0x7F: c.len = 8; break; // INT8
+      case 0x1F:
+      case 0x30:
+        c.len = 1;
+        break; // NULL/INT1
+      case 0x32:
+        c.len = 1;
+        break; // BIT
+      case 0x34:
+        c.len = 2;
+        break; // INT2
+      case 0x38:
+        c.len = 4;
+        break; // INT4
+      case 0x3A:
+        c.len = 4;
+        break; // MONEY4? (SMALLMONEY)
+      case 0x3B:
+        c.len = 4;
+        break; // FLT4
+      case 0x3C:
+        c.len = 8;
+        break; // MONEY
+      case 0x3D:
+        c.len = 8;
+        break; // DATETIME
+      case 0x3E:
+        c.len = 8;
+        break; // FLT8
+      case 0x7F:
+        c.len = 8;
+        break; // INT8
       // variable: length byte
-      case 0x26: c.len = r.u8(); break; // INTN
-      case 0x68: c.len = r.u8(); break; // BITN
-      case 0x6D: c.len = r.u8(); break; // FLTN
-      case 0x6E: c.len = r.u8(); break; // MONEYN
-      case 0x6F: c.len = r.u8(); break; // DATETIMN
-      case 0x24: c.len = r.u8(); break; // GUID
+      case 0x26:
+        c.len = r.u8();
+        break; // INTN
+      case 0x68:
+        c.len = r.u8();
+        break; // BITN
+      case 0x6D:
+        c.len = r.u8();
+        break; // FLTN
+      case 0x6E:
+        c.len = r.u8();
+        break; // MONEYN
+      case 0x6F:
+        c.len = r.u8();
+        break; // DATETIMN
+      case 0x24:
+        c.len = r.u8();
+        break; // GUID
       case 0x6A: // DECIMALN
       case 0x6C: // NUMERICN
         c.len = r.u8();
         c.precision = r.u8();
         c.scale = r.u8();
         break;
-      case 0x28: c.len = 3; break; // DATEN (no scale, 3 bytes, but length sent per-row)
-      case 0x29: c.scale = r.u8(); break; // TIMEN
-      case 0x2A: c.scale = r.u8(); break; // DATETIME2
-      case 0x2B: c.scale = r.u8(); break; // DATETIMEOFFSET
+      case 0x28:
+        c.len = 3;
+        break; // DATEN (no scale, 3 bytes, but length sent per-row)
+      case 0x29:
+        c.scale = r.u8();
+        break; // TIMEN
+      case 0x2A:
+        c.scale = r.u8();
+        break; // DATETIME2
+      case 0x2B:
+        c.scale = r.u8();
+        break; // DATETIMEOFFSET
       case 0xA5: // BIGVARBIN
       case 0xA7: // BIGVARCHAR
       case 0xAD: // BIGBINARY
@@ -495,72 +579,143 @@ class MssqlDriver extends DbDriver {
 
   Object? _readValue(_Reader r, _Col c) {
     switch (c.type) {
-      case 0x38: return r.i32();
-      case 0x34: { final v = r.u16(); return v >= 0x8000 ? v - 0x10000 : v; }
-      case 0x30: return r.u8();
-      case 0x32: return r.u8() != 0;
-      case 0x7F: return r.u64();
-      case 0x3B: return _float(r.take(4));
-      case 0x3E: return _double(r.take(8));
-      case 0x3D: return _datetime(r.take(8)); // DATETIME
-      case 0x26: { // INTN
-        final n = r.u8();
-        if (n == 0) return null;
-        return _intLE(r.take(n));
-      }
-      case 0x68: { final n = r.u8(); return n == 0 ? null : r.u8() != 0; }
-      case 0x6D: { final n = r.u8(); if (n == 0) return null; return n == 4 ? _float(r.take(4)) : _double(r.take(8)); }
-      case 0x6E: case 0x3C: case 0x3A: { final n = c.type == 0x6E ? r.u8() : c.len; if (n == 0) return null; return _money(r.take(n)); }
-      case 0x6F: { final n = r.u8(); return n == 0 ? null : _datetime(r.take(n)); }
-      case 0x24: { final n = r.u8(); return n == 0 ? null : _guid(r.take(n)); }
-      case 0x6A: case 0x6C: { // DECIMALN/NUMERICN
-        final n = r.u8();
-        if (n == 0) return null;
-        final sign = r.u8();
-        final mag = r.take(n - 1);
-        return _decimal(mag, sign, c.scale);
-      }
-      case 0x28: { final n = r.u8(); return n == 0 ? null : _date(r.take(n)); }
-      case 0x29: { final n = r.u8(); return n == 0 ? null : _timeStr(r.take(n), c.scale); }
-      case 0x2A: { final n = r.u8(); return n == 0 ? null : _datetime2(r.take(n), c.scale); }
-      case 0x2B: { final n = r.u8(); if (n == 0) return null; r.take(n); return '<datetimeoffset>'; }
-      case 0xE7: case 0xEF: { // NVARCHAR/NCHAR (incl. NVARCHAR(MAX) = PLP)
-        if (c.len == 0xFFFF) {
-          final b = _readPlp(r);
-          return b == null ? null : String.fromCharCodes(_u16pairs(b));
+      case 0x38:
+        return r.i32();
+      case 0x34:
+        {
+          final v = r.u16();
+          return v >= 0x8000 ? v - 0x10000 : v;
         }
-        final n = r.u16();
-        if (n == 0xFFFF) return null;
-        return r.ucs2(n ~/ 2);
-      }
-      case 0xA7: case 0xAF: { // BIGVARCHAR/BIGCHAR (incl. VARCHAR(MAX) = PLP)
-        if (c.len == 0xFFFF) {
-          final b = _readPlp(r);
-          return b == null ? null : latin1.decode(b, allowInvalid: true);
+      case 0x30:
+        return r.u8();
+      case 0x32:
+        return r.u8() != 0;
+      case 0x7F:
+        return r.u64();
+      case 0x3B:
+        return _float(r.take(4));
+      case 0x3E:
+        return _double(r.take(8));
+      case 0x3D:
+        return _datetime(r.take(8)); // DATETIME
+      case 0x26:
+        {
+          // INTN
+          final n = r.u8();
+          if (n == 0) return null;
+          return _intLE(r.take(n));
         }
-        final n = r.u16();
-        if (n == 0xFFFF) return null;
-        return latin1.decode(r.take(n), allowInvalid: true);
-      }
-      case 0xA5: case 0xAD: {
-        if (c.len == 0xFFFF) {
-          final b = _readPlp(r);
-          return b == null ? null : '<binary ${b.length}b>';
+      case 0x68:
+        {
+          final n = r.u8();
+          return n == 0 ? null : r.u8() != 0;
         }
-        final n = r.u16();
-        if (n == 0xFFFF) return null;
-        r.take(n);
-        return '<binary ${n}b>';
-      }
-      case 0x63: case 0x23: { // NTEXT/TEXT (PLP-ish: textptr)
-        final ptrLen = r.u8();
-        if (ptrLen == 0) return null;
-        r.take(ptrLen); // textptr
-        r.take(8); // timestamp
-        final dataLen = r.u32();
-        final bytes = r.take(dataLen);
-        return c.type == 0x63 ? String.fromCharCodes(_u16pairs(bytes)) : latin1.decode(bytes, allowInvalid: true);
-      }
+      case 0x6D:
+        {
+          final n = r.u8();
+          if (n == 0) return null;
+          return n == 4 ? _float(r.take(4)) : _double(r.take(8));
+        }
+      case 0x6E:
+      case 0x3C:
+      case 0x3A:
+        {
+          final n = c.type == 0x6E ? r.u8() : c.len;
+          if (n == 0) return null;
+          return _money(r.take(n));
+        }
+      case 0x6F:
+        {
+          final n = r.u8();
+          return n == 0 ? null : _datetime(r.take(n));
+        }
+      case 0x24:
+        {
+          final n = r.u8();
+          return n == 0 ? null : _guid(r.take(n));
+        }
+      case 0x6A:
+      case 0x6C:
+        {
+          // DECIMALN/NUMERICN
+          final n = r.u8();
+          if (n == 0) return null;
+          final sign = r.u8();
+          final mag = r.take(n - 1);
+          return _decimal(mag, sign, c.scale);
+        }
+      case 0x28:
+        {
+          final n = r.u8();
+          return n == 0 ? null : _date(r.take(n));
+        }
+      case 0x29:
+        {
+          final n = r.u8();
+          return n == 0 ? null : _timeStr(r.take(n), c.scale);
+        }
+      case 0x2A:
+        {
+          final n = r.u8();
+          return n == 0 ? null : _datetime2(r.take(n), c.scale);
+        }
+      case 0x2B:
+        {
+          final n = r.u8();
+          if (n == 0) return null;
+          r.take(n);
+          return '<datetimeoffset>';
+        }
+      case 0xE7:
+      case 0xEF:
+        {
+          // NVARCHAR/NCHAR (incl. NVARCHAR(MAX) = PLP)
+          if (c.len == 0xFFFF) {
+            final b = _readPlp(r);
+            return b == null ? null : String.fromCharCodes(_u16pairs(b));
+          }
+          final n = r.u16();
+          if (n == 0xFFFF) return null;
+          return r.ucs2(n ~/ 2);
+        }
+      case 0xA7:
+      case 0xAF:
+        {
+          // BIGVARCHAR/BIGCHAR (incl. VARCHAR(MAX) = PLP)
+          if (c.len == 0xFFFF) {
+            final b = _readPlp(r);
+            return b == null ? null : latin1.decode(b, allowInvalid: true);
+          }
+          final n = r.u16();
+          if (n == 0xFFFF) return null;
+          return latin1.decode(r.take(n), allowInvalid: true);
+        }
+      case 0xA5:
+      case 0xAD:
+        {
+          if (c.len == 0xFFFF) {
+            final b = _readPlp(r);
+            return b == null ? null : '<binary ${b.length}b>';
+          }
+          final n = r.u16();
+          if (n == 0xFFFF) return null;
+          r.take(n);
+          return '<binary ${n}b>';
+        }
+      case 0x63:
+      case 0x23:
+        {
+          // NTEXT/TEXT (PLP-ish: textptr)
+          final ptrLen = r.u8();
+          if (ptrLen == 0) return null;
+          r.take(ptrLen); // textptr
+          r.take(8); // timestamp
+          final dataLen = r.u32();
+          final bytes = r.take(dataLen);
+          return c.type == 0x63
+              ? String.fromCharCodes(_u16pairs(bytes))
+              : latin1.decode(bytes, allowInvalid: true);
+        }
       default:
         return null;
     }
@@ -602,16 +757,24 @@ class MssqlDriver extends DbDriver {
     return v;
   }
 
-  double _float(List<int> b) => ByteData.sublistView(Uint8List.fromList(b)).getFloat32(0, Endian.little);
-  double _double(List<int> b) => ByteData.sublistView(Uint8List.fromList(b)).getFloat64(0, Endian.little);
+  double _float(List<int> b) =>
+      ByteData.sublistView(Uint8List.fromList(b)).getFloat32(0, Endian.little);
+  double _double(List<int> b) =>
+      ByteData.sublistView(Uint8List.fromList(b)).getFloat64(0, Endian.little);
 
   Object _money(List<int> b) {
     if (b.length == 4) {
-      final v = ByteData.sublistView(Uint8List.fromList(b)).getInt32(0, Endian.little);
+      final v = ByteData.sublistView(
+        Uint8List.fromList(b),
+      ).getInt32(0, Endian.little);
       return v / 10000.0;
     }
-    final hi = ByteData.sublistView(Uint8List.fromList(b.sublist(0, 4))).getInt32(0, Endian.little);
-    final lo = ByteData.sublistView(Uint8List.fromList(b.sublist(4, 8))).getUint32(0, Endian.little);
+    final hi = ByteData.sublistView(
+      Uint8List.fromList(b.sublist(0, 4)),
+    ).getInt32(0, Endian.little);
+    final lo = ByteData.sublistView(
+      Uint8List.fromList(b.sublist(4, 8)),
+    ).getUint32(0, Endian.little);
     return ((hi << 32) | lo) / 10000.0;
   }
 
@@ -664,9 +827,17 @@ class MssqlDriver extends DbDriver {
 
   String _datetime(List<int> b) {
     // DATETIME: 4 bytes days since 1900-01-01, 4 bytes 1/300s ticks
-    final days = ByteData.sublistView(Uint8List.fromList(b.sublist(0, 4))).getInt32(0, Endian.little);
-    final ticks = ByteData.sublistView(Uint8List.fromList(b.sublist(4, 8))).getUint32(0, Endian.little);
-    final base = DateTime(1900, 1, 1).add(Duration(days: days, milliseconds: (ticks * 1000 / 300).round()));
+    final days = ByteData.sublistView(
+      Uint8List.fromList(b.sublist(0, 4)),
+    ).getInt32(0, Endian.little);
+    final ticks = ByteData.sublistView(
+      Uint8List.fromList(b.sublist(4, 8)),
+    ).getUint32(0, Endian.little);
+    final base = DateTime(
+      1900,
+      1,
+      1,
+    ).add(Duration(days: days, milliseconds: (ticks * 1000 / 300).round()));
     return '${base.year.toString().padLeft(4, '0')}-${base.month.toString().padLeft(2, '0')}-${base.day.toString().padLeft(2, '0')} '
         '${base.hour.toString().padLeft(2, '0')}:${base.minute.toString().padLeft(2, '0')}:${base.second.toString().padLeft(2, '0')}';
   }
@@ -687,7 +858,9 @@ class MssqlDriver extends DbDriver {
   @override
   Future<QueryResult> explain(String sql, {String? catalog}) async {
     if (catalog != null) await _use(catalog);
-    final body = sql.replaceFirst(RegExp(r'^\s*explain\s+', caseSensitive: false), '').trim();
+    final body = sql
+        .replaceFirst(RegExp(r'^\s*explain\s+', caseSensitive: false), '')
+        .trim();
     // SHOWPLAN_ALL replaces execution with the estimated plan; it must be its
     // own batch, so we toggle it around the query in three round-trips.
     await execute('SET SHOWPLAN_ALL ON');
@@ -705,9 +878,11 @@ class MssqlDriver extends DbDriver {
   @override
   Future<Catalog> introspect(String catalog) async {
     await _use(catalog);
-    final cols = await execute('''SELECT t.name AS tbl, c.name AS col, ty.name AS typ, c.max_length, c.precision, c.scale,
+    final cols = await execute(
+      '''SELECT t.name AS tbl, c.name AS col, ty.name AS typ, c.max_length, c.precision, c.scale,
         c.is_nullable, c.is_identity FROM sys.columns c JOIN sys.tables t ON t.object_id=c.object_id
-        JOIN sys.types ty ON ty.user_type_id=c.user_type_id ORDER BY t.name, c.column_id''');
+        JOIN sys.types ty ON ty.user_type_id=c.user_type_id ORDER BY t.name, c.column_id''',
+    );
     final tables = <String, TableDef>{};
     for (final row in cols.rows ?? []) {
       final tn = '${row[0]}';
@@ -720,49 +895,96 @@ class MssqlDriver extends DbDriver {
       } else if (RegExp(r'decimal|numeric').hasMatch(typ)) {
         typeStr = '$typ(${row[4]},${row[5]})';
       }
-      tables.putIfAbsent(tn, () => TableDef(name: tn, columns: [], rows: [])).columns.add(ColumnDef(
-            name: '${row[1]}',
-            type: typeStr,
-            nullable: row[6] == true || row[6] == 1,
-            ai: row[7] == true || row[7] == 1,
-          ));
+      tables
+          .putIfAbsent(tn, () => TableDef(name: tn, columns: [], rows: []))
+          .columns
+          .add(
+            ColumnDef(
+              name: '${row[1]}',
+              type: typeStr,
+              nullable: row[6] == true || row[6] == 1,
+              ai: row[7] == true || row[7] == 1,
+            ),
+          );
     }
-    final pks = await execute('''SELECT t.name, c.name FROM sys.indexes i
+    final pks = await execute(
+      '''SELECT t.name, c.name FROM sys.indexes i
         JOIN sys.index_columns ic ON ic.object_id=i.object_id AND ic.index_id=i.index_id
         JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id
-        JOIN sys.tables t ON t.object_id=i.object_id WHERE i.is_primary_key=1''');
+        JOIN sys.tables t ON t.object_id=i.object_id WHERE i.is_primary_key=1''',
+    );
     for (final row in pks.rows ?? []) {
-      tables['${row[0]}']?.columns.where((c) => c.name == '${row[1]}').forEach((c) => c.pk = true);
+      tables['${row[0]}']?.columns
+          .where((c) => c.name == '${row[1]}')
+          .forEach((c) => c.pk = true);
     }
-    final fks = await execute('''SELECT tp.name, cp.name, tr.name, cr.name FROM sys.foreign_key_columns fkc
+    final fks = await execute(
+      '''SELECT tp.name, cp.name, tr.name, cr.name FROM sys.foreign_key_columns fkc
         JOIN sys.tables tp ON tp.object_id=fkc.parent_object_id
         JOIN sys.columns cp ON cp.object_id=fkc.parent_object_id AND cp.column_id=fkc.parent_column_id
         JOIN sys.tables tr ON tr.object_id=fkc.referenced_object_id
-        JOIN sys.columns cr ON cr.object_id=fkc.referenced_object_id AND cr.column_id=fkc.referenced_column_id''');
+        JOIN sys.columns cr ON cr.object_id=fkc.referenced_object_id AND cr.column_id=fkc.referenced_column_id''',
+    );
     for (final row in fks.rows ?? []) {
-      tables['${row[0]}']?.columns.where((c) => c.name == '${row[1]}').forEach((c) {
+      tables['${row[0]}']?.columns.where((c) => c.name == '${row[1]}').forEach((
+        c,
+      ) {
         c.fkTable = '${row[2]}';
         c.fkCol = '${row[3]}';
       });
     }
-    final est = await execute('''SELECT t.name, SUM(p.rows) FROM sys.tables t
-        JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY t.name''');
+    final est = await execute(
+      '''SELECT t.name, SUM(p.rows) FROM sys.tables t
+        JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN (0,1) GROUP BY t.name''',
+    );
     for (final row in est.rows ?? []) {
       final t = tables['${row[0]}'];
       if (t != null) t.rowEstimate = (row[1] as num?)?.toInt() ?? 0;
     }
-    final views = await execute("SELECT name, OBJECT_DEFINITION(object_id) FROM sys.views");
-    final procs = await execute("SELECT name, OBJECT_DEFINITION(object_id) FROM sys.procedures");
-    final fns = await execute("SELECT name, OBJECT_DEFINITION(object_id) FROM sys.objects WHERE type IN ('FN','IF','TF')");
-    final trigs = await execute("SELECT tr.name, OBJECT_NAME(tr.parent_id), OBJECT_DEFINITION(tr.object_id) FROM sys.triggers tr WHERE tr.parent_id <> 0");
+    final views = await execute(
+      "SELECT name, OBJECT_DEFINITION(object_id) FROM sys.views",
+    );
+    final procs = await execute(
+      "SELECT name, OBJECT_DEFINITION(object_id) FROM sys.procedures",
+    );
+    final fns = await execute(
+      "SELECT name, OBJECT_DEFINITION(object_id) FROM sys.objects WHERE type IN ('FN','IF','TF')",
+    );
+    final trigs = await execute(
+      "SELECT tr.name, OBJECT_NAME(tr.parent_id), OBJECT_DEFINITION(tr.object_id) FROM sys.triggers tr WHERE tr.parent_id <> 0",
+    );
 
     final cat = Catalog(
       label: catalog,
       tables: tables,
-      views: (views.rows ?? []).map((r) => {'name': '${r[0]}', 'definition': '${r[1]}'}).toList(),
-      procedures: (procs.rows ?? []).map((r) => {'name': '${r[0]}', 'params': '', 'definition': '${r[1]}'}).toList(),
-      functions: (fns.rows ?? []).map((r) => {'name': '${r[0]}', 'params': '', 'returns': '', 'definition': '${r[1]}'}).toList(),
-      triggers: (trigs.rows ?? []).map((r) => {'name': '${r[0]}', 'event': 'TRIGGER', 'target': '${r[1]}', 'definition': '${r[2]}'}).toList(),
+      views: (views.rows ?? [])
+          .map((r) => {'name': '${r[0]}', 'definition': '${r[1]}'})
+          .toList(),
+      procedures: (procs.rows ?? [])
+          .map(
+            (r) => {'name': '${r[0]}', 'params': '', 'definition': '${r[1]}'},
+          )
+          .toList(),
+      functions: (fns.rows ?? [])
+          .map(
+            (r) => {
+              'name': '${r[0]}',
+              'params': '',
+              'returns': '',
+              'definition': '${r[1]}',
+            },
+          )
+          .toList(),
+      triggers: (trigs.rows ?? [])
+          .map(
+            (r) => {
+              'name': '${r[0]}',
+              'event': 'TRIGGER',
+              'target': '${r[1]}',
+              'definition': '${r[2]}',
+            },
+          )
+          .toList(),
     );
     cat.relations = buildRelations(tables);
     cat.er = autoErLayout(tables.keys);
@@ -770,9 +992,17 @@ class MssqlDriver extends DbDriver {
   }
 
   @override
-  Future<List<RowMap>> preview(String catalog, String table, int limit) async {
+  Future<List<RowMap>> preview(
+    String catalog,
+    String table,
+    int limit, {
+    List<String>? orderBy,
+  }) async {
     await _use(catalog);
-    final r = await execute('SELECT TOP $limit * FROM [$table]');
+    final ord = orderBy == null || orderBy.isEmpty
+        ? ''
+        : ' ORDER BY ${orderBy.map((c) => '[$c]').join(', ')}';
+    final r = await execute('SELECT TOP $limit * FROM [$table]$ord');
     final headers = r.headers ?? [];
     return (r.rows ?? []).map((row) {
       final m = <String, Object?>{};

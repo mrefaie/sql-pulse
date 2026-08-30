@@ -53,11 +53,19 @@ class TunneledDriver extends DbDriver {
   @override
   Future<Catalog> introspect(String catalog) => _inner.introspect(catalog);
   @override
-  Future<QueryResult> execute(String sql, {String? catalog}) => _inner.execute(sql, catalog: catalog);
+  Future<QueryResult> execute(String sql, {String? catalog}) =>
+      _inner.execute(sql, catalog: catalog);
   @override
-  Future<QueryResult> explain(String sql, {String? catalog}) => _inner.explain(sql, catalog: catalog);
+  Future<QueryResult> explain(String sql, {String? catalog}) =>
+      _inner.explain(sql, catalog: catalog);
   @override
-  Future<List<RowMap>> preview(String catalog, String table, int limit) => _inner.preview(catalog, table, limit);
+  Future<List<RowMap>> preview(
+    String catalog,
+    String table,
+    int limit, {
+    List<String>? orderBy,
+  }) => _inner.preview(catalog, table, limit, orderBy: orderBy);
   @override
-  Future<QueryResult?> runTransaction(List<String> stmts, {String? catalog}) => _inner.runTransaction(stmts, catalog: catalog);
+  Future<QueryResult?> runTransaction(List<String> stmts, {String? catalog}) =>
+      _inner.runTransaction(stmts, catalog: catalog);
 }

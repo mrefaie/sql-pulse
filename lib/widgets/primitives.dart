@@ -23,8 +23,17 @@ class Eyebrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
-    return Text(text.toUpperCase(),
-        style: sans(size: 10.5, weight: FontWeight.w700, color: color ?? c.text3, spacing: 1.4));
+    return Text(
+      text.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: sans(
+        size: 10.5,
+        weight: FontWeight.w700,
+        color: color ?? c.text3,
+        spacing: 1.4,
+      ),
+    );
   }
 }
 
@@ -35,22 +44,52 @@ class IconBtn extends StatelessWidget {
   final double box;
   final double iconSize;
   final Color? color;
-  const IconBtn(this.name, {super.key, this.onTap, this.box = 38, this.iconSize = 18, this.color});
+  const IconBtn(
+    this.name, {
+    super.key,
+    this.onTap,
+    this.box = 44,
+    this.iconSize = 18,
+    this.color,
+  });
+
+  static const Map<String, String> _hints = {
+    'x': 'Close',
+    'cog': 'Settings',
+    'shield': 'Security',
+    'moon': 'Dark theme',
+    'sun': 'Light theme',
+    'more': 'Menu',
+    'zap': 'Command bar',
+    'search': 'Inspect',
+    'trash': 'Delete',
+    'plus': 'Add',
+    'minus': 'Remove',
+    'scan': 'Fit view',
+    'arrowL': 'Back',
+    'terminal': 'Run',
+    'rerun': 'Re-run',
+  };
+
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        width: box,
-        height: box,
-        decoration: BoxDecoration(
-          color: c.surface2,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: c.border),
+      child: Tooltip(
+        message: _hints[name] ?? name,
+        child: Container(
+          width: box,
+          height: box,
+          decoration: BoxDecoration(
+            color: c.surface2,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: c.border),
+          ),
+          alignment: Alignment.center,
+          child: SpIcon(name, size: iconSize, color: color ?? c.text2),
         ),
-        alignment: Alignment.center,
-        child: SpIcon(name, size: iconSize, color: color ?? c.text2),
       ),
     );
   }
@@ -65,7 +104,16 @@ class SpBadge extends StatelessWidget {
   final Color? bg;
   final EdgeInsets? padding;
   final double fontSize;
-  const SpBadge(this.text, {super.key, this.variant = '', this.icon, this.fg, this.bg, this.padding, this.fontSize = 10});
+  const SpBadge(
+    this.text, {
+    super.key,
+    this.variant = '',
+    this.icon,
+    this.fg,
+    this.bg,
+    this.padding,
+    this.fontSize = 10,
+  });
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
@@ -75,15 +123,30 @@ class SpBadge extends StatelessWidget {
     switch (variant) {
       case 'pk':
       case 'warn':
-        color = c.warning; bgc = c.warningSoft; border = Colors.transparent; break;
+        color = c.warning;
+        bgc = c.warningSoft;
+        border = Colors.transparent;
+        break;
       case 'fk':
-        color = c.info; bgc = c.info.withOpacity(0.12); border = Colors.transparent; break;
+        color = c.info;
+        bgc = c.info.withOpacity(0.12);
+        border = Colors.transparent;
+        break;
       case 'accent':
-        color = c.accent; bgc = c.accentSoft; border = Colors.transparent; break;
+        color = c.accent;
+        bgc = c.accentSoft;
+        border = Colors.transparent;
+        break;
       case 'ok':
-        color = c.success; bgc = c.successSoft; border = Colors.transparent; break;
+        color = c.success;
+        bgc = c.successSoft;
+        border = Colors.transparent;
+        break;
       case 'err':
-        color = c.danger; bgc = c.dangerSoft; border = Colors.transparent; break;
+        color = c.danger;
+        bgc = c.dangerSoft;
+        border = Colors.transparent;
+        break;
     }
     if (fg != null) color = fg!;
     if (bg != null) {
@@ -91,12 +154,31 @@ class SpBadge extends StatelessWidget {
       border = Colors.transparent;
     }
     return Container(
-      padding: padding ?? const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: bgc, borderRadius: BorderRadius.circular(6), border: Border.all(color: border)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (icon != null) ...[SpIcon(icon!, size: fontSize, color: color), const SizedBox(width: 4)],
-        Text(text, style: mono(size: fontSize, weight: FontWeight.w600, color: color, spacing: 0.2)),
-      ]),
+      padding:
+          padding ?? const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgc,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            SpIcon(icon!, size: fontSize, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: mono(
+              size: fontSize,
+              weight: FontWeight.w600,
+              color: color,
+              spacing: 0.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -112,46 +194,74 @@ class SpChip extends StatelessWidget {
   final Color? onColor;
   final Color? onBorder;
   final Widget? trailing;
-  const SpChip(this.label,
-      {super.key,
-      this.on = false,
-      this.icon,
-      this.onTap,
-      this.padding = const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      this.mono = true,
-      this.onColor,
-      this.onBorder,
-      this.trailing});
+  const SpChip(
+    this.label, {
+    super.key,
+    this.on = false,
+    this.icon,
+    this.onTap,
+    this.padding = const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+    this.mono = true,
+    this.onColor,
+    this.onBorder,
+    this.trailing,
+  });
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
     final fg = on ? (onColor ?? c.accent) : c.text2;
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         padding: padding,
+        constraints: const BoxConstraints(minHeight: 34),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: on ? c.accentSoft : c.surface2,
           borderRadius: BorderRadius.circular(9),
           border: Border.all(color: on ? (onBorder ?? c.accentLine) : c.border),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (icon != null) ...[SpIcon(icon!, size: 14, color: fg), const SizedBox(width: 6)],
-          Flexible(
-            child: Text(label,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              SpIcon(icon!, size: 14, color: fg),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(
+                label,
                 overflow: TextOverflow.ellipsis,
-                style: (mono ? monoStyle : sans)(size: 11.5, weight: FontWeight.w500, color: fg)),
-          ),
-          if (trailing != null) ...[const SizedBox(width: 6), trailing!],
-        ]),
+                style: (mono ? monoStyle : sans)(
+                  size: 11.5,
+                  weight: FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ),
+            if (trailing != null) ...[const SizedBox(width: 6), trailing!],
+          ],
+        ),
       ),
     );
   }
 }
 
 // small helper so SpChip can pick mono vs sans cleanly (same signature as sans())
-TextStyle monoStyle({double size = 11.5, FontWeight weight = FontWeight.w400, Color? color, double? height, double? spacing}) =>
-    mono(size: size, weight: weight, color: color, height: height, spacing: spacing);
+TextStyle monoStyle({
+  double size = 11.5,
+  FontWeight weight = FontWeight.w400,
+  Color? color,
+  double? height,
+  double? spacing,
+}) => mono(
+  size: size,
+  weight: weight,
+  color: color,
+  height: height,
+  spacing: spacing,
+);
 
 // ---- segmented control ----
 class SegItem<T> {
@@ -198,12 +308,40 @@ class Segmented<T> extends StatelessWidget {
               border: Border.all(color: on ? c.border2 : Colors.transparent),
             ),
             alignment: Alignment.center,
-            child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-              if (it.icon != null) ...[SpIcon(it.icon!, size: 15, color: on ? c.text : c.text2), if (!iconOnly) const SizedBox(width: 6)],
-              if (!iconOnly) Flexible(child: Text(it.label, overflow: TextOverflow.ellipsis, style: sans(size: fontSize, weight: FontWeight.w600, color: on ? c.text : c.text2))),
-            ]),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (it.icon != null) ...[
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: SpIcon(it.icon!, size: 15, color: on ? c.text : c.text2),
+                    ),
+                  ),
+                  if (!iconOnly) const SizedBox(width: 6),
+                ],
+                if (!iconOnly)
+                  Flexible(
+                    child: Text(
+                      it.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: sans(
+                        size: fontSize,
+                        weight: FontWeight.w600,
+                        color: on ? c.text : c.text2,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           );
-          return Expanded(child: GestureDetector(onTap: () => onChange(it.value), child: child));
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onChange(it.value),
+              child: child,
+            ),
+          );
         }).toList(),
       ),
     );
@@ -219,26 +357,42 @@ class SpSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onToggle,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 42,
-        height: 25,
-        decoration: BoxDecoration(
-          color: on ? c.accent : c.surface4,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: on ? Colors.transparent : c.border2),
-        ),
-        child: Stack(children: [
-          AnimatedAlign(
+      child: SizedBox(
+        width: 56,
+        height: 44,
+        child: Center(
+          child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            alignment: on ? Alignment.centerRight : Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.all(2),
-              child: Container(width: 19, height: 19, decoration: BoxDecoration(color: on ? c.accentInk : const Color(0xFFCFD8E2), shape: BoxShape.circle)),
+            width: 42,
+            height: 25,
+            decoration: BoxDecoration(
+              color: on ? c.accent : c.surface4,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: on ? Colors.transparent : c.border2),
+            ),
+            child: Stack(
+              children: [
+                AnimatedAlign(
+                  duration: const Duration(milliseconds: 180),
+                  alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Container(
+                      width: 19,
+                      height: 19,
+                      decoration: BoxDecoration(
+                        color: on ? c.accentInk : const Color(0xFFCFD8E2),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ]),
+        ),
       ),
     );
   }
@@ -276,11 +430,19 @@ class SpButton extends StatelessWidget {
     FontWeight weight = FontWeight.w600;
     switch (kind) {
       case BtnKind.primary:
-        bg = c.accent; fg = c.accentInk; border = Colors.transparent; weight = FontWeight.w700; break;
+        bg = c.accent;
+        fg = c.accentInk;
+        border = Colors.transparent;
+        weight = FontWeight.w700;
+        break;
       case BtnKind.ghost:
-        bg = Colors.transparent; break;
+        bg = Colors.transparent;
+        break;
       case BtnKind.danger:
-        bg = c.dangerSoft; fg = c.danger; border = Colors.transparent; break;
+        bg = c.dangerSoft;
+        fg = c.danger;
+        border = Colors.transparent;
+        break;
       case BtnKind.normal:
         break;
     }
@@ -288,12 +450,30 @@ class SpButton extends StatelessWidget {
     final content = Container(
       height: sm ? 36 : 44,
       padding: EdgeInsets.symmetric(horizontal: sm ? 12 : 16),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(sm ? 10 : 12), border: Border.all(color: border)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(sm ? 10 : 12),
+        border: Border.all(color: border),
+      ),
       alignment: Alignment.center,
-      child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-        if (icon != null) ...[SpIcon(icon!, size: sm ? 14 : 16, color: fg), if (label != null) const SizedBox(width: 8)],
-        if (label != null) Flexible(child: Text(label!, overflow: TextOverflow.ellipsis, style: sans(size: sm ? 12.5 : 13.5, weight: weight, color: fg))),
-      ]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icon != null) ...[
+            SpIcon(icon!, size: sm ? 14 : 16, color: fg),
+            if (label != null) const SizedBox(width: 8),
+          ],
+          if (label != null)
+            Flexible(
+              child: Text(
+                label!,
+                overflow: TextOverflow.ellipsis,
+                style: sans(size: sm ? 12.5 : 13.5, weight: weight, color: fg),
+              ),
+            ),
+        ],
+      ),
     );
     final w = Opacity(opacity: enabled ? 1 : 0.4, child: content);
     final tappable = GestureDetector(onTap: enabled ? onTap : null, child: w);
@@ -333,7 +513,9 @@ class SpInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
-    final style = mono ? monoStyle(size: 13, color: c.text) : sans(size: 13, color: c.text);
+    final style = mono
+        ? monoStyle(size: 13, color: c.text)
+        : sans(size: 13, color: c.text);
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -352,10 +534,20 @@ class SpInput extends StatelessWidget {
         hintStyle: style.copyWith(color: c.text4),
         filled: true,
         fillColor: c.surface2,
-        contentPadding: padding ?? const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: c.border2)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: c.border2)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: c.accentLine)),
+        contentPadding:
+            padding ?? const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide(color: c.border2),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide(color: c.border2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: BorderSide(color: c.accentLine),
+        ),
       ),
     );
   }
@@ -371,10 +563,21 @@ class FieldLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: RichText(
-        text: TextSpan(style: sans(size: 11.5, weight: FontWeight.w600, color: c.text2), children: [
-          TextSpan(text: label),
-          if (hint != null) TextSpan(text: ' · $hint', style: sans(size: 11.5, weight: FontWeight.w500, color: c.text4)),
-        ]),
+        text: TextSpan(
+          style: sans(size: 11.5, weight: FontWeight.w600, color: c.text2),
+          children: [
+            TextSpan(text: label),
+            if (hint != null)
+              TextSpan(
+                text: ' · $hint',
+                style: sans(
+                  size: 11.5,
+                  weight: FontWeight.w500,
+                  color: c.text4,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -388,7 +591,15 @@ class SpCard extends StatelessWidget {
   final Color? borderColor;
   final VoidCallback? onTap;
   final double radius;
-  const SpCard({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.color, this.borderColor, this.onTap, this.radius = R.lg});
+  const SpCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+    this.color,
+    this.borderColor,
+    this.onTap,
+    this.radius = R.lg,
+  });
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
@@ -400,7 +611,13 @@ class SpCard extends StatelessWidget {
         border: Border.all(color: borderColor ?? c.border),
         boxShadow: c.dark
             ? null
-            : [BoxShadow(color: const Color(0x121C1A16), blurRadius: 26, offset: const Offset(0, 10))],
+            : [
+                BoxShadow(
+                  color: const Color(0x121C1A16),
+                  blurRadius: 26,
+                  offset: const Offset(0, 10),
+                ),
+              ],
       ),
       child: child,
     );
@@ -415,14 +632,24 @@ class RowIco extends StatelessWidget {
   final double iconSize;
   final Color? bg;
   final Color? fg;
-  const RowIco(this.icon, {super.key, this.box = 36, this.iconSize = 18, this.bg, this.fg});
+  const RowIco(
+    this.icon, {
+    super.key,
+    this.box = 36,
+    this.iconSize = 18,
+    this.bg,
+    this.fg,
+  });
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
     return Container(
       width: box,
       height: box,
-      decoration: BoxDecoration(color: bg ?? c.surface3, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: bg ?? c.surface3,
+        borderRadius: BorderRadius.circular(10),
+      ),
       alignment: Alignment.center,
       child: SpIcon(icon, size: iconSize, color: fg ?? c.text2),
     );
@@ -434,7 +661,13 @@ class SpRow extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
   final EdgeInsets padding;
-  const SpRow({super.key, required this.child, this.selected = false, this.onTap, this.padding = const EdgeInsets.all(12)});
+  const SpRow({
+    super.key,
+    required this.child,
+    this.selected = false,
+    this.onTap,
+    this.padding = const EdgeInsets.all(12),
+  });
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
@@ -446,7 +679,15 @@ class SpRow extends StatelessWidget {
           color: selected ? c.accentSoft : c.surface,
           borderRadius: BorderRadius.circular(R.r),
           border: Border.all(color: selected ? c.accentLine : c.border),
-          boxShadow: c.dark ? null : [BoxShadow(color: const Color(0x121C1A16), blurRadius: 26, offset: const Offset(0, 10))],
+          boxShadow: c.dark
+              ? null
+              : [
+                  BoxShadow(
+                    color: const Color(0x121C1A16),
+                    blurRadius: 26,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
         ),
         child: child,
       ),
@@ -465,23 +706,40 @@ class Empty extends StatelessWidget {
     final c = SpColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(color: c.surface2, borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
-          alignment: Alignment.center,
-          child: SpIcon(icon, size: 26, color: c.text3),
-        ),
-        const SizedBox(height: 12),
-        Text(title, textAlign: TextAlign.center, style: sans(size: 14, weight: FontWeight.w600, color: c.text2)),
-        if (sub != null) Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240),
-            child: Text(sub!, textAlign: TextAlign.center, style: sans(size: 12.5, color: c.text3)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: c.surface2,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: c.border),
+            ),
+            alignment: Alignment.center,
+            child: SpIcon(icon, size: 26, color: c.text3),
           ),
-        ),
-      ]),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: sans(size: 14, weight: FontWeight.w600, color: c.text2),
+          ),
+          if (sub != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 240),
+                child: Text(
+                  sub!,
+                  textAlign: TextAlign.center,
+                  style: sans(size: 12.5, color: c.text3),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -513,7 +771,14 @@ class TagDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = SpColors.of(context);
-    return Container(width: size, height: size, decoration: BoxDecoration(color: kTagColors[tag] ?? c.text3, shape: BoxShape.circle));
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: kTagColors[tag] ?? c.text3,
+        shape: BoxShape.circle,
+      ),
+    );
   }
 }
 
@@ -528,13 +793,27 @@ class EngineTag extends StatelessWidget {
     final e = eng(engine);
     final col = Color(e.color);
     return Container(
-      padding: padding ?? const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: col.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 6, height: 6, decoration: BoxDecoration(color: col, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(e.short, style: mono(size: fontSize, weight: FontWeight.w600, color: col)),
-      ]),
+      padding:
+          padding ?? const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: col.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: col, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            e.short,
+            style: mono(size: fontSize, weight: FontWeight.w600, color: col),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -549,8 +828,12 @@ class EngineMark extends StatelessWidget {
     final e = eng(engine);
     final col = Color(e.color);
     return Container(
-      width: size, height: size,
-      decoration: BoxDecoration(color: col.withOpacity(0.13), borderRadius: BorderRadius.circular(radius)),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: col.withOpacity(0.13),
+        borderRadius: BorderRadius.circular(radius),
+      ),
       alignment: Alignment.center,
       child: SpIcon('database', size: size * 0.46, color: col),
     );
@@ -564,7 +847,12 @@ class RoleGlyph extends StatelessWidget {
   const RoleGlyph(this.role, {super.key, this.size = 18, this.color});
   @override
   Widget build(BuildContext context) {
-    const map = {'Admin': 'shield', 'Developer': 'wrench', 'Analyst': 'chart', 'ReadOnly': 'eye'};
+    const map = {
+      'Admin': 'shield',
+      'Developer': 'wrench',
+      'Analyst': 'chart',
+      'ReadOnly': 'eye',
+    };
     return SpIcon(map[role] ?? 'eye', size: size, color: color);
   }
 }

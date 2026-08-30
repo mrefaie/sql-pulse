@@ -21,13 +21,20 @@ abstract class DbDriver {
   /// Execute arbitrary SQL against [catalog] (or the current one).
   Future<QueryResult> execute(String sql, {String? catalog});
 
-  /// Fetch a preview of rows from a table (SELECT * … LIMIT).
-  Future<List<RowMap>> preview(String catalog, String table, int limit);
+  /// Fetch a preview of rows from a table (SELECT * … ORDER BY pk LIMIT).
+  Future<List<RowMap>> preview(
+    String catalog,
+    String table,
+    int limit, {
+    List<String>? orderBy,
+  });
 
   /// Return a real execution/query plan for [sql]. Default uses ANSI `EXPLAIN`;
   /// SQLite and SQL Server override with their own mechanism.
   Future<QueryResult> explain(String sql, {String? catalog}) {
-    final body = sql.replaceFirst(RegExp(r'^\s*explain\s+', caseSensitive: false), '').trim();
+    final body = sql
+        .replaceFirst(RegExp(r'^\s*explain\s+', caseSensitive: false), '')
+        .trim();
     return execute('EXPLAIN $body', catalog: catalog);
   }
 
@@ -41,7 +48,10 @@ abstract class DbDriver {
   /// On the first failing statement the whole batch is rolled back and that
   /// statement's error result is returned; otherwise the commit result.
   /// Returns null for an empty list.
-  Future<QueryResult?> runTransaction(List<String> stmts, {String? catalog}) async {
+  Future<QueryResult?> runTransaction(
+    List<String> stmts, {
+    String? catalog,
+  }) async {
     if (stmts.isEmpty) return null;
     final begin = await execute(txBegin, catalog: catalog);
     if (begin.error) return begin;
@@ -98,7 +108,14 @@ List<Relation> buildRelations(Map<String, TableDef> tables) {
   for (final t in tables.values) {
     for (final c in t.columns) {
       if (c.fkTable != null && tables.containsKey(c.fkTable)) {
-        rels.add(Relation(t.name, c.fkTable!, '${t.name}.${c.name} → ${c.fkTable}.${c.fkCol}', _relKinds[k % _relKinds.length]));
+        rels.add(
+          Relation(
+            t.name,
+            c.fkTable!,
+            '${t.name}.${c.name} → ${c.fkTable}.${c.fkCol}',
+            _relKinds[k % _relKinds.length],
+          ),
+        );
         k++;
       }
     }
@@ -109,7 +126,13 @@ List<Relation> buildRelations(Map<String, TableDef> tables) {
 /// True if a SQL string is a row-returning statement (SELECT/SHOW/WITH/EXPLAIN…).
 bool returnsRows(String sql) {
   final q = sql.trimLeft().toLowerCase();
-  return q.startsWith('select') || q.startsWith('show') || q.startsWith('with') ||
-      q.startsWith('explain') || q.startsWith('describe') || q.startsWith('desc ') ||
-      q.startsWith('pragma') || q.startsWith('values') || q.startsWith('table ');
+  return q.startsWith('select') ||
+      q.startsWith('show') ||
+      q.startsWith('with') ||
+      q.startsWith('explain') ||
+      q.startsWith('describe') ||
+      q.startsWith('desc ') ||
+      q.startsWith('pragma') ||
+      q.startsWith('values') ||
+      q.startsWith('table ');
 }

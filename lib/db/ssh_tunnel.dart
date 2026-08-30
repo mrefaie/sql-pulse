@@ -51,10 +51,12 @@ class SshTunnel {
 Future<SshTunnel> openSshTunnel(Profile p) async {
   final o = p.options;
   final host = '${o['sshHost'] ?? ''}'.trim();
-  if (host.isEmpty) throw DbException('SSH tunnel is enabled but no SSH host is set.');
+  if (host.isEmpty)
+    throw DbException('SSH tunnel is enabled but no SSH host is set.');
   final port = int.tryParse('${o['sshPort'] ?? ''}') ?? 22;
   final user = '${o['sshUser'] ?? ''}'.trim();
-  if (user.isEmpty) throw DbException('SSH tunnel is enabled but no SSH user is set.');
+  if (user.isEmpty)
+    throw DbException('SSH tunnel is enabled but no SSH user is set.');
   final auth = '${o['sshAuth'] ?? 'key'}';
 
   // Resolve credentials before opening the socket so failures are reported
@@ -63,26 +65,41 @@ Future<SshTunnel> openSshTunnel(Profile p) async {
   String? Function()? passwordCb;
   if (auth == 'key') {
     final keyPath = '${o['sshKeyFile'] ?? ''}'.trim();
-    if (keyPath.isEmpty) throw DbException('SSH key auth selected but no private key file was chosen.');
+    if (keyPath.isEmpty)
+      throw DbException(
+        'SSH key auth selected but no private key file was chosen.',
+      );
     final f = File(keyPath);
-    if (!f.existsSync()) throw DbException('SSH private key not found: $keyPath');
+    if (!f.existsSync())
+      throw DbException('SSH private key not found: $keyPath');
     final passphrase = '${o['sshPassphrase'] ?? ''}';
     try {
-      identities = SSHKeyPair.fromPem(f.readAsStringSync(), passphrase.isEmpty ? null : passphrase);
+      identities = SSHKeyPair.fromPem(
+        f.readAsStringSync(),
+        passphrase.isEmpty ? null : passphrase,
+      );
     } catch (e) {
-      throw DbException('Could not read SSH private key (wrong passphrase or unsupported format): $e');
+      throw DbException(
+        'Could not read SSH private key (wrong passphrase or unsupported format): $e',
+      );
     }
   } else if (auth == 'password') {
     final pw = '${o['sshPassphrase'] ?? ''}';
     passwordCb = () => pw;
   } else {
     // 'agent' — not supported in this client.
-    throw DbException('SSH agent auth is not supported here. Use a private key or password.');
+    throw DbException(
+      'SSH agent auth is not supported here. Use a private key or password.',
+    );
   }
 
   late final SSHClient client;
   try {
-    final socket = await SSHSocket.connect(host, port, timeout: const Duration(seconds: 12));
+    final socket = await SSHSocket.connect(
+      host,
+      port,
+      timeout: const Duration(seconds: 12),
+    );
     client = SSHClient(
       socket,
       username: user,
@@ -94,7 +111,9 @@ Future<SshTunnel> openSshTunnel(Profile p) async {
     );
     await client.authenticated;
   } catch (e) {
-    throw DbException('SSH connection to $user@$host:$port failed: ${e is DbException ? e.message : e}');
+    throw DbException(
+      'SSH connection to $user@$host:$port failed: ${e is DbException ? e.message : e}',
+    );
   }
 
   // Local listener that forwards each accepted connection to the db endpoint.

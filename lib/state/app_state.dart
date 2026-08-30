@@ -36,7 +36,11 @@ class AppState extends ChangeNotifier {
   int consoleSignal = 0;
   bool staging = false;
   bool masking = false;
-  Map<String, bool> prefs = {'maskProd': true, 'stageProd': true, 'guard': true};
+  Map<String, bool> prefs = {
+    'maskProd': true,
+    'stageProd': true,
+    'guard': true,
+  };
   LockConfig lock = LockConfig();
   bool locked = false;
   List<PendingChange> pending = [];
@@ -49,20 +53,35 @@ class AppState extends ChangeNotifier {
   AppState() {
     final p = Store.load();
     audit = (p['audit'] is List && (p['audit'] as List).isNotEmpty)
-        ? (p['audit'] as List).map((e) => AuditEntry.fromJson((e as Map).cast<String, dynamic>())).toList()
+        ? (p['audit'] as List)
+              .map(
+                (e) => AuditEntry.fromJson((e as Map).cast<String, dynamic>()),
+              )
+              .toList()
         : [];
     theme = p['theme'] as String? ?? 'dark';
     profiles = (p['profiles'] is List)
-        ? (p['profiles'] as List).map((e) => Profile.fromJson((e as Map).cast<String, dynamic>())).toList()
+        ? (p['profiles'] as List)
+              .map((e) => Profile.fromJson((e as Map).cast<String, dynamic>()))
+              .toList()
         : defaultProfiles();
     saved = (p['saved'] is List)
-        ? (p['saved'] as List).map((e) => SavedQuery.fromJson((e as Map).cast<String, dynamic>())).toList()
+        ? (p['saved'] as List)
+              .map(
+                (e) => SavedQuery.fromJson((e as Map).cast<String, dynamic>()),
+              )
+              .toList()
         : [];
     dashboard = (p['dashboard'] is List)
-        ? (p['dashboard'] as List).map((e) => PinCard.fromJson((e as Map).cast<String, dynamic>())).toList()
+        ? (p['dashboard'] as List)
+              .map((e) => PinCard.fromJson((e as Map).cast<String, dynamic>()))
+              .toList()
         : [];
     if (p['prefs'] is Map) {
-      prefs = {...prefs, ...(p['prefs'] as Map).map((k, v) => MapEntry(k as String, v as bool))};
+      prefs = {
+        ...prefs,
+        ...(p['prefs'] as Map).map((k, v) => MapEntry(k as String, v as bool)),
+      };
     }
     lock = LockConfig.fromJson((p['lock'] as Map?)?.cast<String, dynamic>());
     locked = lock.enabled;
@@ -71,15 +90,36 @@ class AppState extends ChangeNotifier {
   Catalog? get currentCatalog => db[catalog];
 
   // ---- persistence ----
-  void _saveProfiles() => Store.save({'profiles': profiles.map((p) => p.toJson()).toList()});
-  void _saveSaved() => Store.save({'saved': saved.map((s) => s.toJson()).toList()});
-  void _saveDashboard() => Store.save({'dashboard': dashboard.map((d) => d.toJson()).toList()});
-  void _saveAudit() => Store.save({'audit': audit.take(60).map((a) => a.toJson()).toList()});
+  void _saveProfiles() =>
+      Store.save({'profiles': profiles.map((p) => p.toJson()).toList()});
+  void _saveSaved() =>
+      Store.save({'saved': saved.map((s) => s.toJson()).toList()});
+  void _saveDashboard() =>
+      Store.save({'dashboard': dashboard.map((d) => d.toJson()).toList()});
+  void _saveAudit() =>
+      Store.save({'audit': audit.take(60).map((a) => a.toJson()).toList()});
 
   bool isProd() => profile != null && profile!.env == 'prod';
 
-  void addAudit({required String status, String table = '', required String query, int ms = 1, int rows = 0}) {
-    audit.insert(0, AuditEntry(role: role, status: status, table: table, query: query.trim(), ms: ms, rows: rows, at: DateTime.now().millisecondsSinceEpoch));
+  void addAudit({
+    required String status,
+    String table = '',
+    required String query,
+    int ms = 1,
+    int rows = 0,
+  }) {
+    audit.insert(
+      0,
+      AuditEntry(
+        role: role,
+        status: status,
+        table: table,
+        query: query.trim(),
+        ms: ms,
+        rows: rows,
+        at: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
     if (audit.length > 60) audit = audit.sublist(0, 60);
     _saveAudit();
   }
@@ -106,7 +146,8 @@ class AppState extends ChangeNotifier {
   }
 
   // ---- profiles ----
-  int _nextId(List<int> ids) => (ids.isEmpty ? 0 : ids.reduce((a, b) => a > b ? a : b)) + 1;
+  int _nextId(List<int> ids) =>
+      (ids.isEmpty ? 0 : ids.reduce((a, b) => a > b ? a : b)) + 1;
   void addProfile(Profile data) {
     data.id = _nextId(profiles.map((p) => p.id).toList());
     profiles = [...profiles, data];
@@ -144,7 +185,9 @@ class AppState extends ChangeNotifier {
     try {
       await drv.connect(p);
       final cats = await drv.listCatalogs();
-      final startCat = cats.contains(p.catalog) ? p.catalog : (cats.isNotEmpty ? cats.first : p.catalog);
+      final startCat = cats.contains(p.catalog)
+          ? p.catalog
+          : (cats.isNotEmpty ? cats.first : p.catalog);
       final cat = await drv.introspect(startCat);
       await _driver?.close();
       _driver = drv;
@@ -164,7 +207,12 @@ class AppState extends ChangeNotifier {
       sql = 'SELECT * FROM ${table.isEmpty ? 'table' : table} LIMIT 50;';
       screen = 'workspace';
       connecting = false;
-      addAudit(status: 'CONNECT', query: 'CONNECT ${p.host}:${p.port} · ${en.eng(p.engine).label} · ${drv.serverVersion}', ms: 1);
+      addAudit(
+        status: 'CONNECT',
+        query:
+            'CONNECT ${p.host}:${p.port} · ${en.eng(p.engine).label} · ${drv.serverVersion}',
+        ms: 1,
+      );
       notifyListeners();
     } catch (e) {
       connecting = false;
@@ -215,7 +263,12 @@ class AppState extends ChangeNotifier {
     final t = currentCatalog?.tables[n];
     if (t != null && !t.loaded) {
       try {
-        final rows = await _driver!.preview(catalog, n, 60);
+        final rows = await _driver!.preview(
+          catalog,
+          n,
+          60,
+          orderBy: t.columns.where((c) => c.pk).map((c) => c.name).toList(),
+        );
         t.rows = rows;
         t.loaded = true;
         if (t.rowEstimate < rows.length) t.rowEstimate = rows.length;
@@ -268,8 +321,25 @@ class AppState extends ChangeNotifier {
   }
 
   // ---- role-based access control (REAL enforcement) ----
-  static final _ddlVerbs = {'create', 'alter', 'drop', 'truncate', 'rename', 'comment'};
-  static final _dmlVerbs = {'insert', 'update', 'delete', 'merge', 'replace', 'upsert', 'call', 'exec', 'execute'};
+  static final _ddlVerbs = {
+    'create',
+    'alter',
+    'drop',
+    'truncate',
+    'rename',
+    'comment',
+  };
+  static final _dmlVerbs = {
+    'insert',
+    'update',
+    'delete',
+    'merge',
+    'replace',
+    'upsert',
+    'call',
+    'exec',
+    'execute',
+  };
 
   /// Returns a denial reason if the active [role] may not run [sql], else null.
   /// Enforces the role contracts: ReadOnly = SELECT only; Analyst = DML but no
@@ -278,20 +348,30 @@ class AppState extends ChangeNotifier {
     if (role == 'Admin') return null;
     final s = sql.trimLeft().toLowerCase();
     final verb = RegExp(r'^[a-z]+').firstMatch(s)?.group(0) ?? '';
-    bool hasWrite() => RegExp(r'\b(insert|update|delete|merge|replace)\b').hasMatch(s);
-    final isUserMgmt = {'grant', 'revoke'}.contains(verb) ||
+    bool hasWrite() =>
+        RegExp(r'\b(insert|update|delete|merge|replace)\b').hasMatch(s);
+    final isUserMgmt =
+        {'grant', 'revoke'}.contains(verb) ||
         RegExp(r'^(create|alter|drop)\s+(user|role|login|group)\b').hasMatch(s);
     switch (role) {
       case 'ReadOnly':
-        final writes = _ddlVerbs.contains(verb) || _dmlVerbs.contains(verb) || {'grant', 'revoke'}.contains(verb) || (verb == 'with' && hasWrite());
-        if (writes) return 'Read-only role — only SELECT statements are permitted.';
+        final writes =
+            _ddlVerbs.contains(verb) ||
+            _dmlVerbs.contains(verb) ||
+            {'grant', 'revoke'}.contains(verb) ||
+            (verb == 'with' && hasWrite());
+        if (writes)
+          return 'Read-only role — only SELECT statements are permitted.';
         break;
       case 'Analyst':
-        if (_ddlVerbs.contains(verb)) return 'Analyst role — schema changes (DDL) are not permitted.';
-        if (isUserMgmt) return 'Analyst role — permission changes are not allowed.';
+        if (_ddlVerbs.contains(verb))
+          return 'Analyst role — schema changes (DDL) are not permitted.';
+        if (isUserMgmt)
+          return 'Analyst role — permission changes are not allowed.';
         break;
       case 'Developer':
-        if (isUserMgmt) return 'Developer role — user & permission management is not allowed.';
+        if (isUserMgmt)
+          return 'Developer role — user & permission management is not allowed.';
         break;
     }
     return null;
@@ -315,15 +395,28 @@ class AppState extends ChangeNotifier {
     final res = await _driver!.execute(q, catalog: catalog);
     result = res;
     busy = false;
-    final m = RegExp(r'''from\s+[`"\[]?(\w+)''', caseSensitive: false).firstMatch(q);
-    addAudit(status: res.error ? 'SYNTAX' : SqlEngine.statusFor(res, q), table: m?.group(1) ?? '', query: q, ms: res.ms, rows: res.rows?.length ?? 0);
+    final m = RegExp(
+      r'''from\s+[`"\[]?(\w+)''',
+      caseSensitive: false,
+    ).firstMatch(q);
+    addAudit(
+      status: res.error ? 'SYNTAX' : SqlEngine.statusFor(res, q),
+      table: m?.group(1) ?? '',
+      query: q,
+      ms: res.ms,
+      rows: res.rows?.length ?? 0,
+    );
     notifyListeners();
   }
 
   Future<void> runScript(String script) async {
     final stmts = SqlEngine.splitStatements(script);
     if (stmts.isEmpty) {
-      result = QueryResult(error: true, message: 'No statements to run.', ms: 1);
+      result = QueryResult(
+        error: true,
+        message: 'No statements to run.',
+        ms: 1,
+      );
       notifyListeners();
       return;
     }
@@ -334,7 +427,12 @@ class AppState extends ChangeNotifier {
     for (final s in stmts) {
       final denied = roleBlock(s);
       if (denied != null) {
-        items.add(BatchItem(s, QueryResult(error: true, denied: true, ms: 1, message: denied)));
+        items.add(
+          BatchItem(
+            s,
+            QueryResult(error: true, denied: true, ms: 1, message: denied),
+          ),
+        );
         continue;
       }
       items.add(BatchItem(s, await _driver!.execute(s, catalog: catalog)));
@@ -342,9 +440,18 @@ class AppState extends ChangeNotifier {
     final ms = (sw.elapsedMicroseconds / 1000).round().clamp(1, 99999);
     final okCount = items.where((i) => !i.res.error && !i.res.denied).length;
     sql = script;
-    result = QueryResult(batch: items, ms: ms, comment: '$okCount/${items.length} statements succeeded.');
+    result = QueryResult(
+      batch: items,
+      ms: ms,
+      comment: '$okCount/${items.length} statements succeeded.',
+    );
     busy = false;
-    addAudit(status: items.any((i) => i.res.error) ? 'SYNTAX' : 'DML', query: 'BATCH · ${items.length} statements', ms: ms, rows: items.fold(0, (a, i) => a + (i.res.rows?.length ?? 0)));
+    addAudit(
+      status: items.any((i) => i.res.error) ? 'SYNTAX' : 'DML',
+      query: 'BATCH · ${items.length} statements',
+      ms: ms,
+      rows: items.fold(0, (a, i) => a + (i.res.rows?.length ?? 0)),
+    );
     notifyListeners();
   }
 
@@ -361,12 +468,22 @@ class AppState extends ChangeNotifier {
     final res = await _driver!.explain(q, catalog: catalog);
     result = res;
     busy = false;
-    addAudit(status: 'EXPLAIN', query: 'EXPLAIN $q', ms: res.ms, rows: res.rows?.length ?? 0);
+    addAudit(
+      status: 'EXPLAIN',
+      query: 'EXPLAIN $q',
+      ms: res.ms,
+      rows: res.rows?.length ?? 0,
+    );
     notifyListeners();
   }
 
   // ---- editing (REAL SQL) ----
-  Future<void> _exec(String sql, {String status = 'DML', String table = '', int rows = 1}) async {
+  Future<void> _exec(
+    String sql, {
+    String status = 'DML',
+    String table = '',
+    int rows = 1,
+  }) async {
     final denied = roleBlock(sql);
     if (denied != null) {
       result = QueryResult(error: true, denied: true, ms: 1, message: denied);
@@ -377,14 +494,25 @@ class AppState extends ChangeNotifier {
     if (res.error) {
       result = res;
     }
-    addAudit(status: res.error ? 'SYNTAX' : status, table: table, query: sql, ms: res.ms, rows: res.error ? 0 : rows);
+    addAudit(
+      status: res.error ? 'SYNTAX' : status,
+      table: table,
+      query: sql,
+      ms: res.ms,
+      rows: res.error ? 0 : rows,
+    );
   }
 
   Future<void> _refresh(String tb) async {
     final t = currentCatalog?.tables[tb];
     if (t == null) return;
     try {
-      t.rows = await _driver!.preview(catalog, tb, 60);
+      t.rows = await _driver!.preview(
+        catalog,
+        tb,
+        60,
+        orderBy: t.columns.where((c) => c.pk).map((c) => c.name).toList(),
+      );
       t.loaded = true;
     } catch (_) {}
   }
@@ -393,8 +521,22 @@ class AppState extends ChangeNotifier {
     final t = currentCatalog!.tables[tb]!;
     if (staging) {
       pending = [
-        ...pending.where((x) => !(x.kind == 'update' && x.table == tb && x.ri == ri && x.col == col)),
-        PendingChange(id: _pid(), kind: 'update', table: tb, ri: ri, col: col, value: val, label: "UPDATE $tb SET $col = '$val'"),
+        ...pending.where(
+          (x) =>
+              !(x.kind == 'update' &&
+                  x.table == tb &&
+                  x.ri == ri &&
+                  x.col == col),
+        ),
+        PendingChange(
+          id: _pid(),
+          kind: 'update',
+          table: tb,
+          ri: ri,
+          col: col,
+          value: val,
+          label: "UPDATE $tb SET $col = '$val'",
+        ),
       ];
       notifyListeners();
       return;
@@ -402,22 +544,39 @@ class AppState extends ChangeNotifier {
     final pk = _pkOf(t)!;
     final pkVal = t.rows[ri][pk.name];
     final colDef = t.columns.firstWhere((c) => c.name == col);
-    final typed = en.eng(engine).fileBased || RegExp(r'INT|DEC|NUM|DOUBLE|FLOAT|REAL|BIGINT|MONEY', caseSensitive: false).hasMatch(colDef.type)
+    final typed =
+        en.eng(engine).fileBased ||
+            RegExp(
+              r'INT|DEC|NUM|DOUBLE|FLOAT|REAL|BIGINT|MONEY',
+              caseSensitive: false,
+            ).hasMatch(colDef.type)
         ? (num.tryParse(val)?.toString() ?? _qval(val))
         : _qval(val);
-    await _exec('UPDATE ${_qid(tb)} SET ${_qid(col)} = $typed WHERE ${_qid(pk.name)} = ${_qval(pkVal)};', table: tb);
+    await _exec(
+      'UPDATE ${_qid(tb)} SET ${_qid(col)} = $typed WHERE ${_qid(pk.name)} = ${_qval(pkVal)};',
+      table: tb,
+    );
     await _refresh(tb);
     notifyListeners();
   }
 
   Future<void> addColumn(String tb, ColumnDef c) async {
     final addKw = engine == 'mssql' ? 'ADD' : 'ADD COLUMN';
-    await _exec('ALTER TABLE ${_qid(tb)} $addKw ${_qid(c.name)} ${c.type} ${c.nullable ? 'NULL' : 'NOT NULL'};', status: 'DDL', table: tb, rows: 0);
+    await _exec(
+      'ALTER TABLE ${_qid(tb)} $addKw ${_qid(c.name)} ${c.type} ${c.nullable ? 'NULL' : 'NOT NULL'};',
+      status: 'DDL',
+      table: tb,
+      rows: 0,
+    );
     await _reintrospect();
     notifyListeners();
   }
 
-  Future<void> createTable(String name, List<ColumnDef> cols, List<IndexDef> indexes) async {
+  Future<void> createTable(
+    String name,
+    List<ColumnDef> cols,
+    List<IndexDef> indexes,
+  ) async {
     final ddl = en.createTableSql(name, cols, indexes, engine);
     await _exec(ddl, status: 'DDL', table: name, rows: 0);
     await _reintrospect();
@@ -426,7 +585,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> alterTable(String origName, List<ColumnDef> newCols, List<ColumnDef> beforeCols, Map<ColumnDef, String> beforeIds, Map<ColumnDef, String> afterIds, String ddl) async {
+  Future<void> alterTable(
+    String origName,
+    List<ColumnDef> newCols,
+    List<ColumnDef> beforeCols,
+    Map<ColumnDef, String> beforeIds,
+    Map<ColumnDef, String> afterIds,
+    String ddl,
+  ) async {
     if (ddl.trim().isNotEmpty && ddl.trim() != '-- no changes') {
       for (final stmt in SqlEngine.splitStatements(ddl)) {
         await _exec(stmt, status: 'DDL', table: origName, rows: 0);
@@ -463,7 +629,10 @@ class AppState extends ChangeNotifier {
         continue;
       }
       cols.add(_qid(c.name));
-      final isNum = RegExp(r'INT|DEC|NUM|DOUBLE|FLOAT|REAL|BIGINT|MONEY', caseSensitive: false).hasMatch(c.type);
+      final isNum = RegExp(
+        r'INT|DEC|NUM|DOUBLE|FLOAT|REAL|BIGINT|MONEY',
+        caseSensitive: false,
+      ).hasMatch(c.type);
       vs.add(isNum && num.tryParse('$v') != null ? '$v' : _qval(v));
     }
     return 'INSERT INTO ${_qid(tb)} (${cols.join(', ')}) VALUES (${vs.join(', ')});';
@@ -472,7 +641,16 @@ class AppState extends ChangeNotifier {
   Future<void> insertRow(String tb, Map<String, String> vals) async {
     final t = currentCatalog!.tables[tb]!;
     if (staging) {
-      pending = [...pending, PendingChange(id: _pid(), kind: 'insert', table: tb, vals: {...vals}, label: 'INSERT INTO $tb')];
+      pending = [
+        ...pending,
+        PendingChange(
+          id: _pid(),
+          kind: 'insert',
+          table: tb,
+          vals: {...vals},
+          label: 'INSERT INTO $tb',
+        ),
+      ];
       notifyListeners();
       return;
     }
@@ -485,14 +663,27 @@ class AppState extends ChangeNotifier {
   Future<void> deleteRow(String tb, int ri) async {
     final t = currentCatalog!.tables[tb]!;
     if (staging) {
-      if (pending.any((x) => x.kind == 'delete' && x.table == tb && x.ri == ri)) return;
-      pending = [...pending, PendingChange(id: _pid(), kind: 'delete', table: tb, ri: ri, label: 'DELETE FROM $tb (row ${ri + 1})')];
+      if (pending.any((x) => x.kind == 'delete' && x.table == tb && x.ri == ri))
+        return;
+      pending = [
+        ...pending,
+        PendingChange(
+          id: _pid(),
+          kind: 'delete',
+          table: tb,
+          ri: ri,
+          label: 'DELETE FROM $tb (row ${ri + 1})',
+        ),
+      ];
       notifyListeners();
       return;
     }
     final pk = _pkOf(t)!;
     final pkVal = ri < t.rows.length ? t.rows[ri][pk.name] : null;
-    await _exec('DELETE FROM ${_qid(tb)} WHERE ${_qid(pk.name)} = ${_qval(pkVal)};', table: tb);
+    await _exec(
+      'DELETE FROM ${_qid(tb)} WHERE ${_qid(pk.name)} = ${_qval(pkVal)};',
+      table: tb,
+    );
     if (t.rowEstimate > 0) t.rowEstimate -= 1;
     await _refresh(tb);
     notifyListeners();
@@ -534,7 +725,8 @@ class AppState extends ChangeNotifier {
   int _pidCounter = 0;
   String _pid() => 'p${_pidCounter++}_${DateTime.now().microsecondsSinceEpoch}';
 
-  ({Map<String, String> updates, Set<int> deletes, List<PendingChange> inserts}) pendingFor(String tb) {
+  ({Map<String, String> updates, Set<int> deletes, List<PendingChange> inserts})
+  pendingFor(String tb) {
     final updates = <String, String>{};
     final deletes = <int>{};
     final inserts = <PendingChange>[];
@@ -568,7 +760,12 @@ class AppState extends ChangeNotifier {
   Future<bool> commitPending() async {
     if (pending.isEmpty) return true;
     if (role == 'ReadOnly') {
-      result = QueryResult(error: true, denied: true, ms: 1, message: 'Read-only role — cannot commit changes.');
+      result = QueryResult(
+        error: true,
+        denied: true,
+        ms: 1,
+        message: 'Read-only role — cannot commit changes.',
+      );
       notifyListeners();
       return false;
     }
@@ -581,12 +778,16 @@ class AppState extends ChangeNotifier {
       final pk = _pkOf(t)!;
       if (p.kind == 'update' && p.ri < t.rows.length) {
         final pkVal = t.rows[p.ri][pk.name];
-        stmts.add('UPDATE ${_qid(p.table)} SET ${_qid(p.col)} = ${_qval(p.value)} WHERE ${_qid(pk.name)} = ${_qval(pkVal)};');
+        stmts.add(
+          'UPDATE ${_qid(p.table)} SET ${_qid(p.col)} = ${_qval(p.value)} WHERE ${_qid(pk.name)} = ${_qval(pkVal)};',
+        );
       } else if (p.kind == 'insert') {
         stmts.add(_insertSql(p.table, p.vals ?? {}, t));
       } else if (p.kind == 'delete' && p.ri < t.rows.length) {
         final pkVal = t.rows[p.ri][pk.name];
-        stmts.add('DELETE FROM ${_qid(p.table)} WHERE ${_qid(pk.name)} = ${_qval(pkVal)};');
+        stmts.add(
+          'DELETE FROM ${_qid(p.table)} WHERE ${_qid(pk.name)} = ${_qval(pkVal)};',
+        );
       }
     }
     if (stmts.isEmpty) {
@@ -603,11 +804,21 @@ class AppState extends ChangeNotifier {
     if (res != null && res.error) {
       // rolled back — keep the tray, surface the failing statement
       result = res;
-      addAudit(status: 'ROLLBACK', query: 'COMMIT · ${stmts.length} statements (rolled back)', ms: ms, rows: 0);
+      addAudit(
+        status: 'ROLLBACK',
+        query: 'COMMIT · ${stmts.length} statements (rolled back)',
+        ms: ms,
+        rows: 0,
+      );
       notifyListeners();
       return false;
     }
-    addAudit(status: 'COMMIT', query: 'COMMIT · ${stmts.length} statements', ms: ms, rows: stmts.length);
+    addAudit(
+      status: 'COMMIT',
+      query: 'COMMIT · ${stmts.length} statements',
+      ms: ms,
+      rows: stmts.length,
+    );
     for (final tb in affectedTables) {
       await _refresh(tb);
     }
@@ -637,7 +848,14 @@ class AppState extends ChangeNotifier {
   // ---- saved queries ----
   void saveQuery(String name, String q) {
     saved = [
-      SavedQuery(id: DateTime.now().millisecondsSinceEpoch, name: name.trim().isEmpty ? 'Untitled query' : name.trim(), sql: q, engine: engine, catalog: catalog, at: DateTime.now().millisecondsSinceEpoch),
+      SavedQuery(
+        id: DateTime.now().millisecondsSinceEpoch,
+        name: name.trim().isEmpty ? 'Untitled query' : name.trim(),
+        sql: q,
+        engine: engine,
+        catalog: catalog,
+        at: DateTime.now().millisecondsSinceEpoch,
+      ),
       ...saved,
     ];
     if (saved.length > 100) saved = saved.sublist(0, 100);
@@ -654,7 +872,15 @@ class AppState extends ChangeNotifier {
   // ---- dashboard ----
   void pinToDashboard(String name, String viz) {
     dashboard = [
-      PinCard(id: DateTime.now().millisecondsSinceEpoch, name: name.trim().isEmpty ? 'Untitled card' : name.trim(), viz: viz, sql: sql, catalog: catalog, engine: engine, at: DateTime.now().millisecondsSinceEpoch),
+      PinCard(
+        id: DateTime.now().millisecondsSinceEpoch,
+        name: name.trim().isEmpty ? 'Untitled card' : name.trim(),
+        viz: viz,
+        sql: sql,
+        catalog: catalog,
+        engine: engine,
+        at: DateTime.now().millisecondsSinceEpoch,
+      ),
       ...dashboard,
     ];
     if (dashboard.length > 30) dashboard = dashboard.sublist(0, 30);
@@ -675,7 +901,8 @@ class AppState extends ChangeNotifier {
 
   /// Live re-run for a board card against the current connection.
   Future<QueryResult> runPinQuery(PinCard pin) async {
-    if (_driver == null) return QueryResult(error: true, message: 'Not connected');
+    if (_driver == null)
+      return QueryResult(error: true, message: 'Not connected');
     return _driver!.execute(pin.sql, catalog: catalog);
   }
 
@@ -684,7 +911,12 @@ class AppState extends ChangeNotifier {
     final t = currentCatalog?.tables[table];
     if (t == null || t.loaded || _driver == null) return;
     try {
-      t.rows = await _driver!.preview(catalog, table, limit);
+      t.rows = await _driver!.preview(
+        catalog,
+        table,
+        limit,
+        orderBy: t.columns.where((c) => c.pk).map((c) => c.name).toList(),
+      );
       t.loaded = true;
     } catch (_) {}
   }
@@ -695,7 +927,9 @@ class AppState extends ChangeNotifier {
     await drv.connect(p);
     try {
       final cats = await drv.listCatalogs();
-      final cat = cats.contains(p.catalog) ? p.catalog : (cats.isNotEmpty ? cats.first : p.catalog);
+      final cat = cats.contains(p.catalog)
+          ? p.catalog
+          : (cats.isNotEmpty ? cats.first : p.catalog);
       final c = await drv.introspect(cat);
       // load previews for row-level diffs of small tables
       for (final t in c.tables.values) {
@@ -716,20 +950,53 @@ class AppState extends ChangeNotifier {
   Future<String?> exportResult(String fmt, String sourceName) async {
     final r = result;
     if (r == null || r.headers == null) return null;
-    final base = sourceName.replaceAll(RegExp(r'[^a-z0-9_]+', caseSensitive: false), '_');
-    if (fmt == 'csv') return Store.shareOrDownload('$base.csv', Store.toCsv(r.headers!, r.rows!));
-    if (fmt == 'json') return Store.shareOrDownload('$base.json', Store.toJsonStr(r.headers!, r.rows!));
-    if (fmt == 'sql') return Store.shareOrDownload('$base.sql', Store.toInserts(sourceName, r.headers!, r.rows!));
-    if (fmt == 'copy') return (await Store.copy(Store.toJsonStr(r.headers!, r.rows!))) ? 'ok' : 'fail';
+    final base = sourceName.replaceAll(
+      RegExp(r'[^a-z0-9_]+', caseSensitive: false),
+      '_',
+    );
+    if (fmt == 'csv')
+      return Store.shareOrDownload(
+        '$base.csv',
+        Store.toCsv(r.headers!, r.rows!),
+      );
+    if (fmt == 'json')
+      return Store.shareOrDownload(
+        '$base.json',
+        Store.toJsonStr(r.headers!, r.rows!),
+      );
+    if (fmt == 'sql')
+      return Store.shareOrDownload(
+        '$base.sql',
+        Store.toInserts(sourceName, r.headers!, r.rows!),
+      );
+    if (fmt == 'copy')
+      return (await Store.copy(Store.toJsonStr(r.headers!, r.rows!)))
+          ? 'ok'
+          : 'fail';
     return null;
   }
 
   Future<void> exportTable(String fmt, String tb) async {
     // export the full table from the server (not just the preview)
-    final res = await _driver!.execute('SELECT * FROM ${_qid(tb)}', catalog: catalog);
+    final res = await _driver!.execute(
+      'SELECT * FROM ${_qid(tb)}',
+      catalog: catalog,
+    );
     if (res.headers == null) return;
-    if (fmt == 'csv') await Store.shareOrDownload('$tb.csv', Store.toCsv(res.headers!, res.rows!));
-    if (fmt == 'json') await Store.shareOrDownload('$tb.json', Store.toJsonStr(res.headers!, res.rows!));
-    if (fmt == 'sql') await Store.shareOrDownload('$tb.sql', Store.toInserts(tb, res.headers!, res.rows!));
+    if (fmt == 'csv')
+      await Store.shareOrDownload(
+        '$tb.csv',
+        Store.toCsv(res.headers!, res.rows!),
+      );
+    if (fmt == 'json')
+      await Store.shareOrDownload(
+        '$tb.json',
+        Store.toJsonStr(res.headers!, res.rows!),
+      );
+    if (fmt == 'sql')
+      await Store.shareOrDownload(
+        '$tb.sql',
+        Store.toInserts(tb, res.headers!, res.rows!),
+      );
   }
 }
