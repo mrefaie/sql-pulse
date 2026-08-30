@@ -41,9 +41,9 @@ backend proxy — see §13).
 | ID | Steps | Expected | Result |
 |---|---|---|---|
 | PG-06 | Tap `Postgres · Local` card. | Connect dialog: profile summary, "Connect as role" options (Admin checked), Test + Connect buttons. | ✅ PASS (session: connect as Admin → workspace) |
-| PG-07 | Tap **Test**. | Modal runs step 0/1 (open + auth), shows server version (PostgreSQL 14.x) and a pass state. | ✅ PASS (mechanism exercised in code `_TestModal`; in-session connect was via Connect) |
+| PG-07 | Tap **Test**. | Modal runs step 0/1 (open + auth), shows server version (PostgreSQL 14.x) and a pass state. | ⚠️ NOT run in-session — code path verified (`_TestModal` → `drv.connect`); tap and verify on next pass |
 | PG-08 | Select role **Admin** → **Connect**. | Loading overlay → workspace opens: header shows `sqlpulse_demo`, engine tag, Admin badge; Browse tab selected; tables list populated live (addresses:50, categories:12, order_items:150, orders:64, payments:64, products:40, reviews:56, suppliers:14, users:44). | ✅ PASS (`screenshots/browse.png`, `test_evidence/order_items_structure.png`) |
-| PG-09 | Role **ReadOnly** → Connect. | Same, badge/ribbon ReadOnly; DML/DDL affordances (New table, Edit schema, Insert row) hidden/disabled. | ✅ PASS for enforcement (see PG-31); role picker UI ✅ |
+| PG-09 | Role **ReadOnly** → Connect. | Same, badge/ribbon ReadOnly; DML/DDL affordances (New table, Edit schema, Insert row) hidden/disabled. | ⚠️ PARTIAL — role picker exercised (switched to ReadOnly in-session, PG-31 evidence); a fresh connect under ReadOnly not run |
 | PG-10 | Disconnect (command bar / more menu → Disconnect). | Returns to connection screen; driver closed (server shows no leftover session). | ⬜ |
 | PG-11 | Re-connect after disconnect. | Works as PG-08 (fresh session). | ⬜ |
 | PG-12 | Duplicate the profile, set a wrong password, Connect. | Error dialog "Connection failed" with the server reason (auth failed), no crash, previous connection intact. | ⬜ |
@@ -83,7 +83,7 @@ backend proxy — see §13).
 | PG-31 | Switch role to **ReadOnly**, run `DELETE …` (batch or single). | Result: **Access denied** card; Activity has DENIED entry with the exact SQL; no server round-trip needed. | ✅ PASS (`test_evidence/denied_readonly.png` — batch #3 DENIED under ReadOnly) |
 | PG-32 | Run multi-statement script (2+ statements via `;`). | Button becomes "Run all · N"; batch result list: per-statement status badges (OK / SYNTAX / DENIED / EXPLAIN) with expandable SQL; summary "N/M statements succeeded". SQL errors per statement only. | ✅ PASS (`test_evidence/batch_results.png`, `delete_admin.png` — 3-statement batch, DML statement succeeded, syntax items marked) |
 | PG-33 | Run invalid SQL (`SELCT 1`). | Red "Statement error" card with the server message (42601 syntax error), no crash; Activity SYNTAX entry. | ✅ PASS (`test_evidence/batch_results.png`) |
-| PG-34 | Tap **Explain** on a single SELECT. | Plan view renders real `EXPLAIN` output (Seq Scan etc.) + advice callouts. | ⚠️ PARTIAL: on single-statement SQL plan rendering is wired (`app_state.explainCurrent` → `driver.explain`); in-session Explain on multi-statement surfaced a raw server error — see Finding F-02 |
+| PG-34 | Tap **Explain** on a single SELECT. | Plan view renders real `EXPLAIN` output (Seq Scan etc.) + advice callouts. | ⚠️ PARTIAL — only the failure path captured in-session (F-02); clean single-statement plan NOT verified on-screen |
 | PG-35 | Tap **Format** (spark). | SQL gets prettified (keywords uppercase, clauses newlined). | ⬜ |
 | PG-36 | Save query (bookmark) → name → Save; open "Saved · N" chip; Load; trash. | Saved in prefs (survives restart); load puts SQL in the console; delete removes. | ⬜ |
 | PG-37 | Results view switcher (table / grid / JSON / chart). | All four render the same result; chart for numeric column draws; JSON valid. | ⬜ |
@@ -94,7 +94,7 @@ backend proxy — see §13).
 
 | ID | Steps | Expected | Result |
 |---|---|---|---|
-| PG-40 | Query → Builder: From `orders`, Select `status` + `order_id COUNT as cnt`, Group by `status`. | Generated preview SQL is dialect-correct (`"status", COUNT("order_id") AS "cnt" ... GROUP BY "status"`); Run executes; grouped rows returned. | ✅ PASS (builder SQL + execution verified in previous session — `screenshots/builder.png`; run via ui_e2e same flow) |
+| PG-40 | Query → Builder: From `orders`, Select `status` + `order_id COUNT as cnt`, Group by `status`. | Generated preview SQL is dialect-correct (`"status", COUNT("order_id") AS "cnt" ... GROUP BY "status"`); Run executes; grouped rows returned. | ⚠️ UI + SQL-gen verified (builder rendered live `screenshots/builder.png`; SQL generation covered by `test/ui_e2e_test.dart`), but **Run was never tapped in-session** — execute on next pass |
 | PG-41 | Add INNER JOIN users on `orders.user_id = users.id`, select usernames. | JOIN clause in SQL; 64 rows; FK names auto-complete. | ⬜ |
 | PG-42 | LEFT JOIN variant. | LEFT JOIN SQL; rows preserved with NULLs. | ⬜ |
 | PG-43 | WHERE `stock < 50`, ORDER `price ASC`, LIMIT 8. | WHERE/ORDER/LIMIT in preview; results match. | ⬜ |
