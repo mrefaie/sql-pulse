@@ -36,8 +36,8 @@ Finder btnIcon(String icon) => find.byWidgetPredicate((w) =>
 
 pg.Connection? _pg;
 
-Future<pg.Connection> pgOpen(String db) => pg.Connection.open(
-      pg.Endpoint(host: '127.0.0.1', port: 5432, database: db, username: 'postgres', password: 'pass'),
+Future<pg.Connection> pgOpen(String db, String host) => pg.Connection.open(
+      pg.Endpoint(host: host, port: 5432, database: db, username: 'postgres', password: 'pass'),
       settings: pg.ConnectionSettings(sslMode: pg.SslMode.disable),
     );
 
@@ -66,10 +66,13 @@ void main() {
     await tester.pumpWidget(ChangeNotifierProvider.value(value: state, child: const SqlPulseApp()));
     await tester.pump();
 
-    _pg = await pgOpen('sqlpulse_demo');
-
     final pgProfile = state.profiles.firstWhere((p) => p.engine == 'postgres');
-    expect(pgProfile.host, '127.0.0.1', reason: 'desktop default profile reaches local Postgres');
+    const dbHost = String.fromEnvironment('DB_HOST', defaultValue: '');
+    if (dbHost.isNotEmpty) pgProfile.host = dbHost;
+    expect(pgProfile.port, 5432, reason: 'profile targets Postgres');
+    expect(pgProfile.host, isNotEmpty);
+
+    _pg = await pgOpen('sqlpulse_demo', pgProfile.host);
 
     Future<void> ensure() async {
       if (state.screen != 'workspace') {
@@ -170,7 +173,7 @@ void main() {
 
     await c('PG-12', 'unreachable endpoint → clean DbException, no crash', () async {
       final bad = pgProfile.clone()
-        ..host = '127.0.0.1'
+        ..host = pgProfile.host
         ..port = 5599
         ..options = {...pgProfile.options, 'password': 'wrong'};
       Object? err;
