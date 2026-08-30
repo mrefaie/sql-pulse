@@ -205,3 +205,33 @@ backend proxy — see §13).
 - [ ] Bottom nav hidden in detail (expected) — ensure a visible back affordance in every detail view.
 - [ ] Landscape / tablet: layout stays comfortable (centered panel mock is gone — real responsive).
 - [ ] No debug prints/flutter-dev banners in screenshots; status bar colors match theme.
+
+## 17. Automated re-run results (macOS desktop) — 2026-08-30
+
+The suite was re-run as an automated integration test on the real macOS
+desktop app against the live local Postgres:
+
+```
+flutter test integration_test/manual_pg_suite_test.dart -d macos
+```
+
+**Result: 33/33 cases PASS** (PG-02…PG-66, incl. all grid-editing, staging,
+RBAC, builder, board, diagram, activity, designer, diff, lock cases; every
+DB mutation verified via its own server connection and restored).
+
+The suite mirrors the plan cases 1:1 (the same target app, profile, and
+`sqlpulse_demo` schema as §0).
+
+### Bugs found & fixed while running it
+
+| ID | Bug | Fix |
+|---|---|---|
+| B-01 | The seed tool inserts explicit ids but never syncs `nextval`, so `INSERT`s without an explicit PK (grid "Insert row", staged inserts) fail with duplicate-key | `tool/seed_pg.dart` now runs `setval(pg_get_serial_sequence(...), max)` for every auto-increment column (reseeded) |
+| B-02 | `preview()` (`SELECT * FROM t LIMIT n`) returns an **unordered** heap scan; after writes, the grid row order shifts and a cell edit at row N can update a different physical row than what the user sees | Test-side workaround (index by PK); app-side finding F-07 |
+
+### New findings from the desktop run
+
+| ID | Finding | Severity | Suggested fix |
+|---|---|---|---|
+| F-06 | Enabling the app lock via Settings → Security does **not** lock the current session — `setLock` saves the config but never sets `locked`; the lock only engages after an app restart | Medium | `setLock` should set `locked = next.enabled` (and the UI should reflect it) |
+| F-07 | Data-grid preview has no `ORDER BY` → after inserts/deletes, row order is unstable and cell edits map to the grid's physical row (user-visible mismatch between what's shown and what gets updated) | Medium | Order previews by primary key (`ORDER BY <pk>`) in all drivers |

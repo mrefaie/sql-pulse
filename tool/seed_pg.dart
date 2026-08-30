@@ -136,6 +136,15 @@ Future<void> main() async {
     }
   }
   print('inserted rows');
+  // fix serial sequences (seed inserts explicit ids; leave nextval past the max)
+  for (final name in order) {
+    final t = cat.tables[name]!;
+    for (final c in t.columns.where((c) => c.ai)) {
+      await conn.execute(
+          "SELECT setval(pg_get_serial_sequence('$name', '${c.name}'), (SELECT max(${c.name}) FROM $name), true)");
+    }
+  }
+  print('sequences synchronized');
 
   // views (v_top_rated uses a MySQL-only alias in HAVING; Postgres needs COUNT)
   const pgViewOverrides = {
