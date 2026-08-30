@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="SQL Pulse — multi-engine SQL client">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SQL Pulse">
+  <meta name="theme-color" content="#161618">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>SQL Pulse</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #161618; }
+    #sp-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; background: radial-gradient(900px 600px at 50% -10%, #242427 0%, #0E0E10 65%);
+      font-family: -apple-system, system-ui, sans-serif; color: #ABA8A1;
+      transition: opacity .35s ease; opacity: 1;
+    }
+    #sp-loader.hide { opacity: 0; pointer-events: none; }
+    #sp-loader .logo {
+      width: 64px; height: 64px; border-radius: 18px;
+      background: linear-gradient(135deg, #5772FF, #2E44D6);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 14px 40px rgba(46,68,214,.45);
+    }
+    #sp-loader .logo svg { width: 40px; height: 40px; }
+    #sp-loader .title { font-size: 22px; font-weight: 800; letter-spacing: -.5px; color: #F3F1EC; }
+    #sp-loader .sub { font-size: 13px; color: #76746E; }
+    #sp-loader .bar { width: 180px; height: 4px; border-radius: 2px; background: #27272B; overflow: hidden; }
+    #sp-loader .bar i { display: block; height: 100%; width: 40%; border-radius: 2px;
+      background: linear-gradient(90deg, #4361FF, #C2F042); animation: sp-slide 1.1s ease-in-out infinite; }
+    @keyframes sp-slide { 0% { transform: translateX(-120%);} 100% { transform: translateX(320%);} }
+  </style>
+</head>
+<body>
+  <div id="sp-loader">
+    <div class="logo">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <g fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="256" cy="168" rx="112" ry="44"/>
+          <path d="M144 168 V344"/><path d="M368 168 V344"/>
+          <path d="M144 344 a112 44 0 0 0 224 0"/>
+        </g>
+        <path d="M118 262 H214 L240 210 L286 322 L312 262 H394" fill="none" stroke="#C2F042" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="title">SQL&nbsp;Pulse</div>
+    <div class="bar"><i></i></div>
+    <div class="sub" id="sp-status">Loading…</div>
+  </div>
+
+  <script>
+    // WebAuthn biometric bridge — triggers the device Face ID / Touch ID /
+    // fingerprint for the on-device app lock. (Requires a secure context: HTTPS
+    // or localhost. Credentials are stored per-origin in localStorage.)
+    window.spBio = {
+      available: async function () {
+        try {
+          return !!(window.PublicKeyCredential &&
+            await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+        } catch (e) { return false; }
+      },
+      authenticate: async function (reason) {
+        try {
+          var rp = location.hostname;
+          var key = 'sp_bio_cred_' + rp;
+          var idB64 = localStorage.getItem(key);
+          var challenge = crypto.getRandomValues(new Uint8Array(32));
+          if (!idB64) {
+            // first time on this origin → register a platform credential
+            var cred = await navigator.credentials.create({ publicKey: {
+              challenge: challenge,
+              rp: { name: 'SQL Pulse', id: rp },
+              user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'sqlpulse', displayName: 'SQL Pulse' },
+              pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+              authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+              timeout: 60000,
+            }});
+            var raw = new Uint8Array(cred.rawId);
+            localStorage.setItem(key, btoa(String.fromCharCode.apply(null, raw)));
+            return true; // create with UV=required succeeded → biometric passed
+          }
+          var rawId = Uint8Array.from(atob(idB64), function (c) { return c.charCodeAt(0); });
+          await navigator.credentials.get({ publicKey: {
+            challenge: challenge,
+            timeout: 60000,
+            userVerification: 'required',
+            rpId: rp,
+            allowCredentials: [{ type: 'public-key', id: rawId, transports: ['internal'] }],
+          }});
+          return true;
+        } catch (e) { console.warn('biometric', e && e.message); return false; }
+      },
+    };
+  </script>
+
+  <script>
+    // Hide the loader once Flutter paints its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('sp-loader');
+      if (el) { el.classList.add('hide'); setTimeout(function(){ el.remove(); }, 400); }
+    });
+    // Friendly status while the (sizable) app bundle downloads.
+    setTimeout(function(){ var s=document.getElementById('sp-status'); if(s) s.textContent='Loading the app…'; }, 4000);
+    setTimeout(function(){ var s=document.getElementById('sp-status'); if(s) s.textContent='Almost there — first load can take a moment over the tunnel.'; }, 12000);
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
